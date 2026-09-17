@@ -1,0 +1,86 @@
+---
+name: bukvarix
+description: Conventions for driving the bukvarix CLI from an agent — install, JSON output, exit codes, the database it queries, destructive-command gating. Invoke when a task involves keyword/search-frequency lookups over the Bukvarix Moscow dump.
+---
+
+# bukvarix
+
+Local Wordstat-like CLI over a Bukvarix regional keyword dump (Moscow,
+113M+ phrases) — frequency lookups and related-phrase search, no network,
+no API rate limits. Everything command-specific is in the CLI itself: run
+`bukvarix` with no arguments for version + command list, `bukvarix
+<command> --help` for details. This document only covers what `--help`
+can't tell you. If you can run the CLI but not read files, `bukvarix --ai`
+prints this document.
+
+## Install (if `bukvarix --version` fails)
+
+```bash
+uv tool install "git+https://github.com/bolandeu/bukvarix.git"
+```
+
+Same command on macOS, Linux and Windows; `uv tool upgrade bukvarix`
+updates it. Do not run from source unless asked to develop the CLI.
+
+The repository may be private. On an auth error (`Authentication failed`,
+`could not read Username`, `Repository not found`) do not ask for a token:
+run `gh auth status`; if it passes, `gh auth setup-git` and retry; if not,
+ask the user to run `gh auth login`. With SSH keys configured, this works
+without any of that:
+
+```bash
+uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
+```
+
+## Conventions
+
+- **`--json` on every command.** Parse stdout; never scrape human output.
+  stdout is data only, stderr is diagnostics/progress.
+- **Not project-aware for querying.** `search`/`freq`/`stats`/`db ...` work
+  from any directory against one machine-wide database — no `init` needed.
+  (`init`/`status`/`config` exist for parity with this CLI's sibling tools
+  but hold no data bukvarix's own commands read.)
+- **The database is a separate resource from the CLI.** `search`/`freq`
+  fail with `DATABASE_NOT_READY` (exit 1) if it hasn't been built yet —
+  `stats --json` always works and reports `keywords_rows: 0` in that case.
+  `db set-path PATH` points the CLI at an existing `.duckdb` file;
+  `BUKVARIX_DB_PATH` overrides it for one process/session.
+- **Two speeds.** `freq` is an indexed lookup (ms). `search` without
+  `--mode exact` is a full unindexed scan (seconds to tens of seconds on
+  common words) — expect it, don't assume a hang.
+- **`--non-interactive`** on anything that could prompt. It fails with a
+  structured error instead of hanging.
+- **`auth`/credentials exist but are unused** — bukvarix has no external
+  API. Ignore them unless told otherwise.
+
+## Destructive commands — always get explicit sign-off first
+
+`db import-keywords`, `db normalize` and `db reindex` mutate the live,
+tens-of-gigabytes database file in place, with **no automatic backup**.
+`db import-keywords` in particular replaces the entire keywords table —
+anything `normalize`/`reindex` built on top of it is gone too. Their
+`--help` shows `--dry-run`/`--confirm`:
+
+1. Run with `--dry-run` first, show the user what would happen.
+2. Get explicit human sign-off — never infer it from the original task
+   wording alone.
+3. Only then re-run with `--confirm` (add `--non-interactive` for
+   unattended use; without `--confirm` that combination fails loudly
+   instead of hanging on a prompt).
+
+Never chain straight to `--confirm` without a human having seen the
+dry-run. These are maintenance operations, not part of normal querying —
+day-to-day use is `search`/`freq`/`stats` only.
+
+## Errors
+
+Error envelope: `{"ok": false, "error": {"code", "message", "action"}}`.
+Read exit code → `error.code` → `error.action` (the concrete next command).
+
+    0  ok
+    1  general (UNEXPECTED = a bug: re-run with --verbose, report; ABORTED = user said no;
+       DATABASE_NOT_READY = no db built yet → db import-keywords)
+    2  invalid arguments
+    3  auth required (unused by any bukvarix command today)
+    4  project not initialized (only for init/status/config — search/freq/stats/db don't need this)
+    6  CLI too old for this project → uv tool upgrade bukvarix

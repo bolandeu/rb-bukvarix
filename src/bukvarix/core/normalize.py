@@ -2,19 +2,83 @@ from __future__ import annotations
 
 import duckdb
 
+
+def _fetchone(con: duckdb.DuckDBPyConnection, sql: str) -> tuple:
+    """`.fetchone()`, asserting the row exists — safe for aggregate queries
+    (COUNT), which DuckDB always returns exactly one row for, even over
+    zero matching rows.
+    """
+    result = con.execute(sql).fetchone()
+    assert result is not None  # noqa: S101 -- type-narrowing an aggregate query's guaranteed row, not a security check
+    return result
+
+
 # Prepositions, conjunctions and particles — the same class of function words
 # Yandex Wordstat ignores by default (unless forced back in with `+слово`).
 # Deliberately excludes pronouns/demonstratives ("это", "весь", ...): those
 # can carry real search intent, prepositions/conjunctions essentially never do.
 STOPWORDS = [
-    "в", "во", "на", "с", "со", "к", "ко", "у", "о", "об", "обо",
-    "от", "ото", "до", "из", "изо", "для", "по", "при", "за", "над",
-    "под", "про", "через", "между", "без", "вне", "около", "вокруг",
-    "среди", "кроме", "сквозь", "вместо", "ради", "путём", "путем",
-    "согласно", "благодаря", "вопреки",
-    "и", "а", "но", "или", "либо", "да", "что", "как", "чтобы",
-    "если", "хотя", "пока", "когда", "потому", "поэтому", "зато",
-    "же", "ли", "бы", "не", "ни", "то",
+    "в",
+    "во",
+    "на",
+    "с",
+    "со",
+    "к",
+    "ко",
+    "у",
+    "о",
+    "об",
+    "обо",
+    "от",
+    "ото",
+    "до",
+    "из",
+    "изо",
+    "для",
+    "по",
+    "при",
+    "за",
+    "над",
+    "под",
+    "про",
+    "через",
+    "между",
+    "без",
+    "вне",
+    "около",
+    "вокруг",
+    "среди",
+    "кроме",
+    "сквозь",
+    "вместо",
+    "ради",
+    "путём",
+    "путем",
+    "согласно",
+    "благодаря",
+    "вопреки",
+    "и",
+    "а",
+    "но",
+    "или",
+    "либо",
+    "да",
+    "что",
+    "как",
+    "чтобы",
+    "если",
+    "хотя",
+    "пока",
+    "когда",
+    "потому",
+    "поэтому",
+    "зато",
+    "же",
+    "ли",
+    "бы",
+    "не",
+    "ни",
+    "то",
 ]
 
 
@@ -23,12 +87,13 @@ def add_content_signature(con: duckdb.DuckDBPyConnection) -> None:
     unlike word-order permutations, phrases differing by a stop word are
     genuinely distinct source rows with their own frequency.
     """
-    has_col = con.execute(
-        "SELECT count(*) FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'content_signature'"
-    ).fetchone()[0]
+    has_col = _fetchone(
+        con,
+        "SELECT count(*) FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'content_signature'",
+    )[0]
     if has_col:
-        populated = con.execute("SELECT count(*) FROM keywords WHERE content_signature IS NOT NULL").fetchone()[0]
-        total = con.execute("SELECT count(*) FROM keywords").fetchone()[0]
+        populated = _fetchone(con, "SELECT count(*) FROM keywords WHERE content_signature IS NOT NULL")[0]
+        total = _fetchone(con, "SELECT count(*) FROM keywords")[0]
         if populated >= total - 1000:  # already done in a prior run, skip re-computing
             return
 
@@ -65,15 +130,18 @@ def add_lemma_signature(con: duckdb.DuckDBPyConnection) -> int:
     lemma would be unrecoverable. Returns the number of distinct words
     lemmatized.
     """
-    has_word_lemmas = con.execute(
-        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'word_lemmas'"
-    ).fetchone()[0]
-    if has_word_lemmas and con.execute("SELECT count(*) FROM word_lemmas").fetchone()[0] > 0:
-        word_count = con.execute("SELECT count(*) FROM word_lemmas").fetchone()[0]
+    has_word_lemmas = _fetchone(con, "SELECT count(*) FROM information_schema.tables WHERE table_name = 'word_lemmas'")[
+        0
+    ]
+    if has_word_lemmas and _fetchone(con, "SELECT count(*) FROM word_lemmas")[0] > 0:
+        word_count = _fetchone(con, "SELECT count(*) FROM word_lemmas")[0]
     else:
-        words = [r[0] for r in con.execute(
-            "SELECT DISTINCT word FROM (SELECT unnest(str_split(lower(phrase), ' ')) AS word FROM keywords) WHERE word != ''"
-        ).fetchall()]
+        words = [
+            r[0]
+            for r in con.execute(
+                "SELECT DISTINCT word FROM (SELECT unnest(str_split(lower(phrase), ' ')) AS word FROM keywords) WHERE word != ''"
+            ).fetchall()
+        ]
         pairs = _lemmatize_words(words)
         con.execute("DROP TABLE IF EXISTS word_lemmas")
         con.execute("CREATE TABLE word_lemmas (word VARCHAR PRIMARY KEY, lemma VARCHAR)")

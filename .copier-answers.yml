@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v1.0.0
+_src_path: /Users/bolandau/Projects/ai/cli-generator
+author_name: net.paradox
+description: Local Wordstat-like CLI over Bukvarix keyword/SERP dumps
+include_auth: true
+package_name: bukvarix
+project_name: Bukvarix
+repository_url: https://github.com/bolandeu/bukvarix

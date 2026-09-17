@@ -1,33 +1,27 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import duckdb
 
 
-# Real, hardcoded default — not just ~/.local/share/bukvarix/bukvarix.duckdb.
-# BUKVARIX_DB_PATH was set via ~/.zshrc when the DB was moved here, but that
-# only loads for interactive shells that source it — any other process
-# (a subprocess spawned by a different tool, a GUI app, a service) won't see
-# it and silently falls back to this default. Point the default at the real
-# file so it works even without the env var; BUKVARIX_DB_PATH remains an
-# explicit override for anyone who wants a different location.
-DEFAULT_DB_PATH = Path("/Users/bolandau/Projects/bukvarix/bukvarix.duckdb")
+def connect(db_path: Path, *, read_only: bool = False) -> duckdb.DuckDBPyConnection:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return duckdb.connect(str(db_path), read_only=read_only)
 
 
-def db_path() -> Path:
-    override = os.environ.get("BUKVARIX_DB_PATH")
-    return Path(override) if override else DEFAULT_DB_PATH
+def _fetchone(con: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> tuple:
+    """`.fetchone()`, asserting the row exists — safe for aggregate queries
+    (COUNT/SUM), which DuckDB always returns exactly one row for, even over
+    zero matching rows. Narrows the `tuple | None` return type for callers
+    that unpack/subscript it unconditionally.
+    """
+    result = con.execute(sql, params).fetchone() if params is not None else con.execute(sql).fetchone()
+    assert result is not None  # noqa: S101 -- type-narrowing an aggregate query's guaranteed row, not a security check
+    return result
 
 
-def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    path = db_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return duckdb.connect(str(path), read_only=read_only)
-
-
-def import_keywords(tsv_path: Path) -> dict:
+def import_keywords(db_path: Path, tsv_path: Path) -> dict:
     """Import a Bukvarix regional keywords TSV (phrase\\tfreq, no header).
 
     Bukvarix TSVs are not quoted/escaped, so quote='' is required or a
@@ -42,7 +36,7 @@ def import_keywords(tsv_path: Path) -> dict:
     variants are noise, same as Wordstat already collapsing them in its own
     output.
     """
-    con = connect()
+    con = connect(db_path)
     try:
         con.execute("PRAGMA preserve_insertion_order = false")
         con.execute(
@@ -56,7 +50,7 @@ def import_keywords(tsv_path: Path) -> dict:
             """,
             [str(tsv_path)],
         )
-        raw_rows = con.execute("SELECT count(*) FROM keywords").fetchone()[0]
+        raw_rows = _fetchone(con, "SELECT count(*) FROM keywords")[0]
 
         con.execute("ALTER TABLE keywords ADD COLUMN signature VARCHAR")
         con.execute(
@@ -79,7 +73,7 @@ def import_keywords(tsv_path: Path) -> dict:
             WHERE rn = 1
             """
         )
-        deduped_rows = con.execute("SELECT count(*) FROM keywords").fetchone()[0]
+        deduped_rows = _fetchone(con, "SELECT count(*) FROM keywords")[0]
 
         con.execute("CHECKPOINT")
         return {
@@ -91,7 +85,7 @@ def import_keywords(tsv_path: Path) -> dict:
         con.close()
 
 
-def build_indexes() -> None:
+def build_indexes(db_path: Path) -> None:
     """Build indexes for all three lookup tiers, separately from import/normalize.
 
     Split out because CREATE (UNIQUE) INDEX on a ~127M-row VARCHAR column
@@ -105,13 +99,16 @@ def build_indexes() -> None:
     skipped with a warning if those columns don't exist yet (normalize()
     hasn't run) rather than failing.
     """
-    con = connect()
+    con = connect(db_path)
     try:
         con.execute("CREATE INDEX IF NOT EXISTS idx_keywords_signature ON keywords(signature)")
 
-        cols = {r[0] for r in con.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = 'keywords'"
-        ).fetchall()}
+        cols = {
+            r[0]
+            for r in con.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'keywords'"
+            ).fetchall()
+        }
         if "content_signature" in cols:
             con.execute("CREATE INDEX IF NOT EXISTS idx_keywords_content_signature ON keywords(content_signature)")
         if "lemma_signature" in cols:
@@ -132,7 +129,7 @@ def _signature(phrase: str) -> str:
 
 
 def _content_signature(phrase: str) -> str:
-    from bukvarix.normalize import STOPWORDS
+    from bukvarix.core.normalize import STOPWORDS
 
     stopwords = set(STOPWORDS)
     return " ".join(sorted(w for w in phrase.lower().split(" ") if w not in stopwords))
@@ -147,9 +144,7 @@ def _lemmatize_words_list(con: duckdb.DuckDBPyConnection, words: list[str]) -> l
         return []
     if not con.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'word_lemmas'").fetchone():
         return list(words)
-    rows = dict(con.execute(
-        "SELECT word, lemma FROM word_lemmas WHERE word IN (SELECT unnest(?))", [words]
-    ).fetchall())
+    rows = dict(con.execute("SELECT word, lemma FROM word_lemmas WHERE word IN (SELECT unnest(?))", [words]).fetchall())
     return [rows.get(w, w) for w in words]
 
 
@@ -176,9 +171,7 @@ def _exact_lookup(con: duckdb.DuckDBPyConnection, query: str) -> tuple[dict | No
     Returns (row, matched_via) so callers/agents know whether the result was
     an exact word-order match or found via a looser (stop-word/lemma) tier.
     """
-    row = con.execute(
-        "SELECT phrase, freq_msk_exact FROM keywords WHERE signature = ?", [_signature(query)]
-    ).fetchone()
+    row = con.execute("SELECT phrase, freq_msk_exact FROM keywords WHERE signature = ?", [_signature(query)]).fetchone()
     if row:
         return {"phrase": row[0], "freq_msk_exact": row[1]}, "exact"
 
@@ -204,7 +197,7 @@ def _exact_lookup(con: duckdb.DuckDBPyConnection, query: str) -> tuple[dict | No
     return None, None
 
 
-def search_smart(query: str, limit: int) -> dict:
+def search_smart(db_path: Path, query: str, limit: int) -> dict:
     """Default search behavior — mirrors how real Wordstat answers a query:
     both the phrase's own frequency (`self`, via the tiered exact lookup)
     AND a depth list of related phrases (`results`), in one response.
@@ -225,10 +218,10 @@ def search_smart(query: str, limit: int) -> dict:
     Also recognizes +word/-word operators (see query_syntax.py) right here
     in the default, lemmatized — unlike --mode query, which is literal.
     """
-    from bukvarix.query_syntax import parse_query
+    from bukvarix.core.query_syntax import parse_query
 
     parsed = parse_query(query)
-    con = connect(read_only=True)
+    con = connect(db_path, read_only=True)
     try:
         if parsed.excluded:
             self_result = None
@@ -236,9 +229,10 @@ def search_smart(query: str, limit: int) -> dict:
             self_row, matched_via = _exact_lookup(con, query)
             self_result = {**self_row, "matched_via": matched_via} if self_row else None
 
-        has_lemma_col = con.execute(
-            "SELECT count(*) FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'lemma_signature'"
-        ).fetchone()[0]
+        has_lemma_col = _fetchone(
+            con,
+            "SELECT count(*) FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'lemma_signature'",
+        )[0]
         col = "lemma_signature" if has_lemma_col else "phrase"
 
         required = _lemmatize_words_list(con, parsed.required) if has_lemma_col else parsed.required
@@ -254,9 +248,9 @@ def search_smart(query: str, limit: int) -> dict:
             params.append(w)
         where = " AND ".join(conditions)
 
-        total_count, total_freq_sum = con.execute(
-            f"SELECT count(*), coalesce(sum(freq_msk_exact), 0) FROM keywords WHERE {where}", params
-        ).fetchone()
+        total_count, total_freq_sum = _fetchone(
+            con, f"SELECT count(*), coalesce(sum(freq_msk_exact), 0) FROM keywords WHERE {where}", params
+        )
         sql = f"SELECT phrase, freq_msk_exact FROM keywords WHERE {where} ORDER BY freq_msk_exact DESC LIMIT ?"
         rows = con.execute(sql, [*params, limit]).fetchall()
         results = [{"phrase": r[0], "freq_msk_exact": r[1]} for r in rows]
@@ -270,9 +264,9 @@ def search_smart(query: str, limit: int) -> dict:
         con.close()
 
 
-def search_query(query: str, limit: int) -> list[dict]:
+def search_query(db_path: Path, query: str, limit: int) -> list[dict]:
     """search --mode query: parses +word/-word operators (see query_syntax.py)."""
-    from bukvarix.query_syntax import parse_query
+    from bukvarix.core.query_syntax import parse_query
 
     parsed = parse_query(query)
     conditions = []
@@ -288,7 +282,7 @@ def search_query(query: str, limit: int) -> list[dict]:
     where = " AND ".join(conditions)
     sql = f"SELECT phrase, freq_msk_exact FROM keywords WHERE {where} ORDER BY freq_msk_exact DESC LIMIT ?"
     params.append(limit)
-    con = connect(read_only=True)
+    con = connect(db_path, read_only=True)
     try:
         rows = con.execute(sql, params).fetchall()
         return [{"phrase": r[0], "freq_msk_exact": r[1]} for r in rows]
@@ -296,10 +290,10 @@ def search_query(query: str, limit: int) -> list[dict]:
         con.close()
 
 
-def search(query: str, mode: str, limit: int) -> list[dict]:
+def search(db_path: Path, query: str, mode: str, limit: int) -> list[dict]:
     if mode == "query":
-        return search_query(query, limit)
-    con = connect(read_only=True)
+        return search_query(db_path, query, limit)
+    con = connect(db_path, read_only=True)
     try:
         if mode == "exact":
             row, matched_via = _exact_lookup(con, query)
@@ -325,8 +319,8 @@ def search(query: str, mode: str, limit: int) -> list[dict]:
         con.close()
 
 
-def freq(query: str) -> dict | None:
-    con = connect(read_only=True)
+def freq(db_path: Path, query: str) -> dict | None:
+    con = connect(db_path, read_only=True)
     try:
         row, matched_via = _exact_lookup(con, query)
         return {**row, "matched_via": matched_via} if row else None
@@ -340,12 +334,16 @@ def _lemma_signatures_batch(con: duckdb.DuckDBPyConnection, phrases: list[str]) 
     """
     phrase_words = {p: [w for w in p.lower().split(" ") if w] for p in phrases}
     if not con.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'word_lemmas'").fetchone():
-        return {p: None for p in phrases}
+        return dict.fromkeys(phrases)
 
     all_words = list({w for words in phrase_words.values() for w in words})
-    lemma_by_word = dict(con.execute(
-        "SELECT word, lemma FROM word_lemmas WHERE word IN (SELECT unnest(?))", [all_words]
-    ).fetchall()) if all_words else {}
+    lemma_by_word = (
+        dict(
+            con.execute("SELECT word, lemma FROM word_lemmas WHERE word IN (SELECT unnest(?))", [all_words]).fetchall()
+        )
+        if all_words
+        else {}
+    )
 
     return {
         p: " ".join(sorted(lemma_by_word.get(w, w) for w in words)) if words else None
@@ -353,7 +351,7 @@ def _lemma_signatures_batch(con: duckdb.DuckDBPyConnection, phrases: list[str]) 
     }
 
 
-def freq_batch(queries: list[str]) -> dict[str, dict | None]:
+def freq_batch(db_path: Path, queries: list[str]) -> dict[str, dict | None]:
     """Batched version of freq(): one connection and one SQL query per tier
     (signature -> content_signature -> lemma_signature) for the whole list,
     instead of a connection + up to 3 queries per phrase. Meant for callers
@@ -368,7 +366,7 @@ def freq_batch(queries: list[str]) -> dict[str, dict | None]:
     if not queries:
         return {}
 
-    con = connect(read_only=True)
+    con = connect(db_path, read_only=True)
     try:
         result: dict[str, dict | None] = dict.fromkeys(dict.fromkeys(queries))
         remaining = list(result)
@@ -387,9 +385,12 @@ def freq_batch(queries: list[str]) -> dict[str, dict | None]:
         remaining = [q for q in remaining if result[q] is None]
 
         # Tier 2: content_signature (stop-words ignored)
-        has_content_sig = remaining and con.execute(
-            "SELECT 1 FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'content_signature'"
-        ).fetchone()
+        has_content_sig = (
+            remaining
+            and con.execute(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = 'keywords' AND column_name = 'content_signature'"
+            ).fetchone()
+        )
         if has_content_sig:
             by_csig: dict[str, list[str]] = {}
             for q in remaining:
@@ -424,31 +425,32 @@ def freq_batch(queries: list[str]) -> dict[str, dict | None]:
         con.close()
 
 
-def normalize() -> dict:
-    from bukvarix.normalize import normalize as _normalize
+def normalize(db_path: Path) -> dict:
+    from bukvarix.core.normalize import normalize as _normalize
 
-    con = connect()
+    con = connect(db_path)
     try:
         return _normalize(con)
     finally:
         con.close()
 
 
-def stats() -> dict:
-    path = db_path()
-    con = connect(read_only=True)
+def stats(db_path: Path) -> dict:
+    if not db_path.exists():
+        # duckdb.connect(..., read_only=True) refuses to create a new file,
+        # so there is nothing to open yet — report the all-zero state
+        # instead of raising (stats is meant to work before any import).
+        return {"db_path": str(db_path), "db_size_bytes": 0, "tables": [], "keywords_rows": 0}
+
+    con = connect(db_path, read_only=True)
     try:
         tables = [r[0] for r in con.execute("SHOW TABLES").fetchall()]
-        row_count = (
-            con.execute("SELECT count(*) FROM keywords").fetchone()[0]
-            if "keywords" in tables
-            else 0
-        )
+        row_count = _fetchone(con, "SELECT count(*) FROM keywords")[0] if "keywords" in tables else 0
     finally:
         con.close()
     return {
-        "db_path": str(path),
-        "db_size_bytes": path.stat().st_size if path.exists() else 0,
+        "db_path": str(db_path),
+        "db_size_bytes": db_path.stat().st_size,
         "tables": tables,
         "keywords_rows": row_count,
     }
