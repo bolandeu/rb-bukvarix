@@ -1,0 +1,25 @@
+# The production database — 44GB+, never belongs in git
+*.duckdb
+*.duckdb.wal
+*.duckdb.backup_*
+*.bak_*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Test/lint/coverage artifacts
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Local project state for a CLI consuming bukvarix (not this repo's own data)
+.bukvarix/state.json
