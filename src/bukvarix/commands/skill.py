@@ -25,6 +25,7 @@ _TOOL_TARGETS = {
 
 
 def _skill_content() -> str:
+    """Bundled SKILL.md text — not a Typer command, no --help text."""
     return resources.files(f"{_PACKAGE_NAME}.data").joinpath("SKILL.md").read_text()
 
 

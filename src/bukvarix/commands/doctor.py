@@ -16,6 +16,7 @@ _PACKAGE_NAME = __name__.split(".")[0]
 
 
 def _auth_checks(provider: str) -> list[dict]:
+    """doctor's credential_store/credential checks — not a Typer command, no --help text."""
     # credentials/ is dropped at generation time when include_auth=false;
     # detecting it at runtime keeps this file free of template logic.
     if importlib.util.find_spec(f"{_PACKAGE_NAME}.credentials") is None:
@@ -43,6 +44,7 @@ def _auth_checks(provider: str) -> list[dict]:
 
 
 def _db_checks() -> list[dict]:
+    """doctor's db_path/db_ready checks — not a Typer command, no --help text."""
     db_path = services.resolve_db_path()
     ready = db_path.exists()
     return [
