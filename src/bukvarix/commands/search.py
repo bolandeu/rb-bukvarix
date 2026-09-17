@@ -22,24 +22,24 @@ def search(
     mode: str | None = typer.Option(
         None,
         "--mode",
-        help="omit for the default (self + related phrases, order/form-insensitive, like Wordstat) | contains | words | prefix | exact | query",
+        help="без флага — умный дефолт (self + похожие фразы, порядок/форма слов не важны, как в Wordstat) | contains | words | prefix | exact | query",
     ),
     limit: int = typer.Option(20, "--limit"),
-    csv_path: Path | None = typer.Option(None, "--csv", help="Save results as CSV instead of printing them"),
+    csv_path: Path | None = typer.Option(None, "--csv", help="Сохранить результаты в CSV вместо печати"),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Search phrases. Default: the phrase's own frequency + a depth list of
-    related phrases (word order and word form don't matter) — one call,
-    like typing into Wordstat. Explicit --mode for narrower/literal control:
+    """Поиск фраз. По умолчанию: частотность самой фразы + список похожих
+    фраз в глубину (порядок слов и словоформы не важны) — один вызов,
+    как ввод в Wordstat. Явный --mode для более узкого/буквального контроля:
 
-    --mode contains: literal substring, word order matters
-    --mode words: all words present, any order (no lemma normalization)
-    --mode prefix: phrase starts with QUERY
-    --mode exact: only the single canonical phrase (post word-order dedup)
-    --mode query: literal +word/-word operators (no lemma normalization)
-      e.g. "+в москве -недорого"
+    --mode contains: буквальная подстрока, порядок слов важен
+    --mode words: все слова присутствуют, порядок не важен (без лемм)
+    --mode prefix: фраза начинается с QUERY
+    --mode exact: только единственная каноническая фраза (после дедупа перестановок)
+    --mode query: буквальные операторы +слово/-слово (без лемм)
+      например "+в москве -недорого"
     """
     if mode is not None and mode not in _MODES:
         raise InvalidArguments(f"Invalid --mode: {mode!r}. Use {'|'.join(sorted(_MODES))}.")

@@ -16,7 +16,7 @@ _PACKAGE_NAME = __name__.split(".")[0]
 # its docstring. No `no_args_is_help` (that exits 2) — main_options() below
 # prints this and exits 0. Shell completion stays enabled.
 app = typer.Typer(
-    help=f"{_PACKAGE_NAME} {installed_version() or DEV_VERSION} — {package_summary() or 'Local Wordstat-like CLI over Bukvarix dumps'}"
+    help=f"{_PACKAGE_NAME} {installed_version() or DEV_VERSION} — {package_summary() or 'Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix'}"
 )
 
 app.add_typer(config_cmd.app, name="config")
@@ -56,21 +56,23 @@ def _ai_callback(value: bool) -> None:
 @app.callback(invoke_without_command=True)
 def main_options(
     ctx: typer.Context,
-    project: str = typer.Option(None, "--project", help="Path to the project root."),
-    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
-    quiet: bool = typer.Option(False, "--quiet", help="Suppress non-essential output."),
-    verbose: bool = typer.Option(False, "--verbose", help="Emit extra diagnostic output."),
-    non_interactive: bool = typer.Option(False, "--non-interactive", help="Never prompt; fail instead."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen without making changes."),
+    project: str = typer.Option(None, "--project", help="Путь к корню проекта."),
+    json_output: bool = typer.Option(False, "--json", help="Вывести результат в машиночитаемом формате JSON."),
+    quiet: bool = typer.Option(False, "--quiet", help="Подавить второстепенный вывод."),
+    verbose: bool = typer.Option(False, "--verbose", help="Вывести дополнительную диагностику."),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", help="Никогда не спрашивать интерактивно — завершаться с ошибкой."
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Показать, что произойдёт, без внесения изменений."),
     version: bool = typer.Option(
-        False, "--version", callback=_version_callback, is_eager=True, help="Show the version and exit."
+        False, "--version", callback=_version_callback, is_eager=True, help="Показать версию и выйти."
     ),
     ai: bool = typer.Option(
         False,
         "--ai",
         callback=_ai_callback,
         is_eager=True,
-        help="Print AI-oriented usage documentation (the bundled skill doc) and exit.",
+        help="Вывести документацию для AI-агентов (встроенный skill-файл) и выйти.",
     ),
 ) -> None:
     ctx.ensure_object(dict)

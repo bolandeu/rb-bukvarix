@@ -14,7 +14,7 @@ def stats(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Database stats: path, size, row counts. Works even if the database doesn't exist yet."""
+    """Статистика базы данных: путь, размер, число строк. Работает, даже если базы ещё нет."""
     db_path = services.resolve_db_path()
     result = db_stats(db_path)
     output.emit_success(ctx, result, render_human=output.human.render_stats)

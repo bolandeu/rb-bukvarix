@@ -9,7 +9,7 @@ from ..core import services
 from ..core.errors import InvalidArguments
 from ..core.models import ProjectConfig
 
-app = output.group("Manage project configuration.")
+app = output.group("Управление конфигурацией проекта.")
 
 
 @app.command("list")
@@ -19,7 +19,7 @@ def list_config(
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """List all configuration values."""
+    """Показать все значения конфигурации."""
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     config = services.load_config(root)
@@ -31,11 +31,11 @@ def list_config(
 @output.guard
 def get_config(
     ctx: typer.Context,
-    key: str = typer.Argument(..., help="Dotted config key, e.g. provider.name"),
+    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например provider.name"),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Get a single configuration value."""
+    """Получить одно значение конфигурации."""
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     value: object = services.load_config(root).model_dump()
@@ -52,12 +52,12 @@ def get_config(
 @output.guard
 def set_config(
     ctx: typer.Context,
-    key: str = typer.Argument(..., help="Dotted config key, e.g. provider.name"),
-    value: str = typer.Argument(..., help="New value (stored as a string)."),
+    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например provider.name"),
+    value: str = typer.Argument(..., help="Новое значение (сохраняется как строка)."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Set a single, non-secret configuration value."""
+    """Установить одно (несекретное) значение конфигурации."""
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     data = services.load_config(root).model_dump()

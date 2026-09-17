@@ -11,18 +11,18 @@ from ..core import services
 @output.guard
 def init(
     ctx: typer.Context,
-    name: str | None = typer.Option(None, "--name", help="Project name (defaults to directory name)."),
-    force: bool = typer.Option(False, "--force", help="Overwrite an already-initialized project's config."),
+    name: str | None = typer.Option(None, "--name", help="Имя проекта (по умолчанию — имя директории)."),
+    force: bool = typer.Option(False, "--force", help="Перезаписать конфиг уже инициализированного проекта."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Initialize a project: creates .bukvarix/config.toml in the target directory.
+    """Инициализировать проект: создаёт .bukvarix/config.toml в целевой директории.
 
-    Not required for search/freq/stats/db — those work against a single
-    machine-wide database (see 'bukvarix db --help'). This is only for
-    per-directory config (currently just cli.min_version), kept for parity
-    with the rest of this CLI's standard command surface.
+    Не требуется для search/freq/stats/db — они работают с единой базой
+    на весь компьютер (см. 'bukvarix db --help'). Это только для
+    конфигурации на директорию (пока только cli.min_version), оставлено
+    для единообразия со стандартным набором команд этого CLI.
     """
     target = Path(ctx.obj.get("project") or Path.cwd()).resolve()
 

@@ -105,15 +105,13 @@ def test_doctor_reports_missing_database(tmp_path: Path) -> None:
     assert payload["healthy"] is False
 
 
-def test_doctor_healthy_ignores_missing_project(
-    tmp_path: Path, imported_db: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_doctor_healthy_once_a_database_exists(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
-    code, payload = invoke_json("--project", str(tmp_path), "doctor")
+    code, payload = invoke_json("doctor")
     assert code == 0
-    project_check = next(c for c in payload["checks"] if c["name"] == "project")
-    assert project_check["ok"] is False  # no .bukvarix/ here — informational only
-    assert payload["healthy"] is True  # doesn't count against health
+    assert payload["healthy"] is True
+    names = [c["name"] for c in payload["checks"]]
+    assert "project" not in names  # bukvarix has no project concept — not reported
 
 
 # --- error handling contract ---------------------------------------------------

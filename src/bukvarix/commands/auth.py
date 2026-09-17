@@ -6,19 +6,21 @@ from .. import output
 from ..core.errors import InvalidArguments
 from ..credentials import manager as credentials
 
-app = output.group("Manage credentials (not used by any bukvarix command today; kept for fleet-wide parity).")
+app = output.group(
+    "Управление учётными данными (сегодня ни одна команда bukvarix их не использует; оставлено для единообразия с другими CLI)."
+)
 
 
 @app.command("login")
 @output.guard
 def login(
     ctx: typer.Context,
-    provider: str = typer.Option("default", "--provider", help="Provider/profile name."),
+    provider: str = typer.Option("default", "--provider", help="Имя провайдера/профиля."),
     non_interactive: bool = output.NonInteractiveOption,
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Store a credential for a provider."""
+    """Сохранить учётные данные для провайдера."""
     secret = credentials.read_secret_from_env(provider)
     if secret is None:
         if ctx.obj.get("non_interactive") or non_interactive:
@@ -42,7 +44,7 @@ def logout(
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Remove a stored credential."""
+    """Удалить сохранённые учётные данные."""
     credentials.delete_secret(provider)
     output.emit_success(
         ctx,
@@ -59,7 +61,7 @@ def auth_status(
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Check whether a credential is available for a provider."""
+    """Проверить, доступны ли учётные данные для провайдера."""
     authenticated = credentials.get_secret(provider) is not None
     output.emit_success(
         ctx,

@@ -9,18 +9,18 @@ from ..core import services
 from ..core.db import build_indexes, import_keywords
 from ..core.db import normalize as db_normalize
 
-app = output.group("Database maintenance (not part of normal querying — see 'bukvarix search --help').")
+app = output.group("Обслуживание базы данных (не часть обычного поиска — см. 'bukvarix search --help').")
 
 
 @app.command("set-path")
 @output.guard
 def set_path(
     ctx: typer.Context,
-    path: Path = typer.Argument(..., help="Path to the .duckdb file to use for search/freq/stats/db commands."),
+    path: Path = typer.Argument(..., help="Путь к файлу .duckdb для команд search/freq/stats/db."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Persist the database file path (overridden by the BUKVARIX_DB_PATH env var)."""
+    """Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH)."""
     resolved = path.expanduser().resolve()
     services.set_user_db_path(resolved)
     output.emit_success(
@@ -35,7 +35,7 @@ def set_path(
 def import_keywords_cmd(
     ctx: typer.Context,
     path: Path = typer.Argument(
-        ..., exists=True, readable=True, help="Path to keywords TSV (phrase\\tfreq, no header)"
+        ..., exists=True, readable=True, help="Путь к TSV с ключевыми словами (phrase\\tfreq, без заголовка)"
     ),
     confirm: bool = output.ConfirmOption,
     dry_run: bool = output.DryRunOption,
@@ -43,11 +43,12 @@ def import_keywords_cmd(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Import a Bukvarix regional keywords TSV, replacing the current database contents.
+    """Импортировать региональный TSV Bukvarix, заменив текущее содержимое базы.
 
-    Destructive: does CREATE OR REPLACE TABLE — the existing keywords table
-    (and any normalize/reindex work on it) is gone once this runs. Back up
-    the database file first (see AGENTS.md); there is no automatic backup.
+    Деструктивно: выполняет CREATE OR REPLACE TABLE — существующая таблица
+    keywords (и всё, что построили над ней normalize/reindex) пропадает
+    после запуска. Сделайте бэкап файла базы заранее (см. AGENTS.md) —
+    автоматического бэкапа нет.
     """
     db_path = services.resolve_db_path()
     if output.is_dry_run(ctx):
@@ -84,10 +85,10 @@ def normalize_cmd(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Add content_signature (stop-words) and lemma_signature (pymorphy3) match keys.
+    """Добавить ключи сопоставления content_signature (стоп-слова) и lemma_signature (pymorphy3).
 
-    Mutates the live database in place (ALTER TABLE + UPDATE) and can take
-    several minutes on the full dataset. Back up the database file first.
+    Меняет действующую базу на месте (ALTER TABLE + UPDATE), на полном
+    датасете может занять несколько минут. Сделайте бэкап файла базы заранее.
     """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
@@ -122,11 +123,11 @@ def reindex_cmd(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Build indexes on signature/content_signature/lemma_signature, separately from import/normalize.
+    """Построить индексы на signature/content_signature/lemma_signature — отдельно от import/normalize.
 
-    Idempotent (CREATE INDEX IF NOT EXISTS) but can take well over 10
-    minutes and roughly doubles the database file size — back it up first
-    if disk space or time budget is tight.
+    Идемпотентно (CREATE INDEX IF NOT EXISTS), но может занять больше
+    10 минут и примерно удваивает размер файла базы — сделайте бэкап
+    заранее, если место на диске или время ограничены.
     """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)

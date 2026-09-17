@@ -2,7 +2,7 @@
 _commit: v1.0.0
 _src_path: /Users/bolandau/Projects/ai/cli-generator
 author_name: net.paradox
-description: Local Wordstat-like CLI over Bukvarix keyword/SERP dumps
+description: Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix
 include_auth: true
 package_name: bukvarix
 project_name: Bukvarix

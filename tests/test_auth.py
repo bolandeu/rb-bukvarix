@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from .test_cli import invoke, invoke_json
@@ -62,10 +60,3 @@ def test_env_var_works_when_keyring_is_unavailable(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("bukvarix.credentials.manager.keyring.get_password", broken_get_password)
     _, payload = invoke_json("auth", "status", "--provider", "demo", env={"BUKVARIX_DEMO_API_KEY": "secret"})
     assert payload["authenticated"] is True
-
-
-def test_doctor_reports_credential_checks(tmp_path: Path, fake_keyring) -> None:
-    _, payload = invoke_json("--project", str(tmp_path), "doctor")
-    names = [check["name"] for check in payload["checks"]]
-    assert "credential_store" in names
-    assert "credential" in names

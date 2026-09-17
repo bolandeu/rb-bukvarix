@@ -32,14 +32,16 @@ __all__ = [
 
 # Reusable local options: attach to any command so `<cli> <command> --json`
 # works, on top of the global `<cli> --json <command>` handled by guard().
-JsonOption = typer.Option(False, "--json", help="Emit machine-readable JSON output.")
-QuietOption = typer.Option(False, "--quiet", help="Suppress non-essential output.")
-DryRunOption = typer.Option(False, "--dry-run", help="Show what would happen without making changes.")
+JsonOption = typer.Option(False, "--json", help="Вывести результат в машиночитаемом формате JSON.")
+QuietOption = typer.Option(False, "--quiet", help="Подавить второстепенный вывод.")
+DryRunOption = typer.Option(False, "--dry-run", help="Показать, что произойдёт, без внесения изменений.")
 ConfirmOption = typer.Option(
-    False, "--confirm", help="Confirm a destructive action (required together with --non-interactive)."
+    False, "--confirm", help="Подтвердить деструктивное действие (обязательно вместе с --non-interactive)."
 )
-VerboseOption = typer.Option(False, "--verbose", help="Emit extra diagnostic output.")
-NonInteractiveOption = typer.Option(False, "--non-interactive", help="Never prompt; fail instead.")
+VerboseOption = typer.Option(False, "--verbose", help="Вывести дополнительную диагностику.")
+NonInteractiveOption = typer.Option(
+    False, "--non-interactive", help="Никогда не спрашивать интерактивно — завершаться с ошибкой."
+)
 
 
 def configure_logging(verbose: bool) -> None:

@@ -17,7 +17,7 @@ def freq(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Exact frequency lookup for a single phrase (word order doesn't matter)."""
+    """Точная частотность одной фразы (порядок слов не важен)."""
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
 
