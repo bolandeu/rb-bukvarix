@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CHANGELOG = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
+CHANGELOG = Path(__file__).resolve().parent.parent / "docs" / "changelog.md"
 UNRELEASED = "## [Unreleased]"
 
 
@@ -51,7 +51,7 @@ def main() -> None:
         today = datetime.date.today().isoformat()
         CHANGELOG.write_text(text.replace(UNRELEASED, f"{UNRELEASED}\n\n## [{version}] - {today}", 1))
 
-    run("git", "add", "pyproject.toml", "uv.lock", CHANGELOG.name)
+    run("git", "add", "pyproject.toml", "uv.lock", str(CHANGELOG))
     run("git", "commit", "-m", f"Release {tag}")
     run("git", "tag", "-a", tag, "-m", tag)
     run("git", "push", "--follow-tags")

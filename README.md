@@ -23,7 +23,7 @@ uv run scripts/release.py patch   # or minor / major
 ```
 
 Bumps the version in `pyproject.toml`, dates the `## [Unreleased]` section
-of `CHANGELOG.md`, commits, tags `v<version>` and pushes. Keep the changelog
+of `docs/changelog.md`, commits, tags `v<version>` and pushes. Keep the changelog
 current as you work; the release script only stamps it.
 
 ## Install
@@ -88,7 +88,7 @@ committed to this repo). Path resolution, in order:
 `search`/`freq` fail with a structured `DATABASE_NOT_READY` error if
 nothing has been imported yet; `stats --json` always succeeds and reports
 `keywords_rows: 0` in that case. Building the database from a raw Bukvarix
-TSV export is documented in `BUILD.md`.
+TSV export is documented in `docs/build.md`.
 
 ## Architecture
 
@@ -101,7 +101,7 @@ This project follows a fixed CLI architecture:
   for fleet-wide consistency; unused today (bukvarix has no external API).
 - `src/bukvarix/output/` — human (`rich`) and `--json` rendering.
 
-Run `bukvarix doctor` to check environment/database/config readiness, and
+Run `bukvarix doctor` to check environment and database readiness, and
 `bukvarix --help` for the full command surface. Every command supports
 `--json` for machine/agent consumption (envelope: `{"ok": true, ...}` on
 success, `{"ok": false, "error": {"code", "message", "action"}}` on

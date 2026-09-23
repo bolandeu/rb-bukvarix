@@ -53,7 +53,7 @@ show_missing = true
 
 [tool.ruff]
 line-length = 120
-# BUILD.md/AGENTS.md/EXAMPLES.md embed Python snippets as a historical
+# docs/build.md/AGENTS.md/docs/examples.md embed Python snippets as a historical
 # record of past experiments — ruff's markdown-aware formatter would keep
 # "reformatting" that frozen prose on every run. Format actual source only.
 extend-exclude = ["*.md"]

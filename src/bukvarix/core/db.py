@@ -208,7 +208,7 @@ def search_smart(db_path: Path, query: str, limit: int) -> dict:
     _exact_lookup(). This is looser than --mode words (which only ignores
     order, not form) — same accuracy tradeoff already accepted for `freq`.
 
-    ⚠️ FTS/BM25 was tried here (see BUILD.md problem 5) and reverted: BM25
+    ⚠️ FTS/BM25 was tried here (see docs/build.md problem 5) and reverted: BM25
     is OR-semantics (ranks phrases with ANY query word), so a query
     containing a common word (e.g. the preposition "в") matched millions
     of largely-unrelated rows — both slower than the plain AND scan AND

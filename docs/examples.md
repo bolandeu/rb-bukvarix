@@ -129,16 +129,12 @@ $ bukvarix doctor --json
   {"name": "python", "ok": true},
   {"name": "cli_version", "ok": true, "detail": "0.1.0"},
   {"name": "db_path", "ok": true, "detail": "/Users/bolandau/Projects/tools/bukvarix/bukvarix.duckdb"},
-  {"name": "db_ready", "ok": true, "detail": null},
-  {"name": "project", "ok": false, "detail": null},
-  {"name": "credential_store", "ok": true, "detail": "keyring.backends.macOS.Keyring"},
-  {"name": "credential", "ok": false, "detail": "provider 'default' — run 'bukvarix auth login --provider default'"}
+  {"name": "db_ready", "ok": true, "detail": null}
 ]}
 ```
 
-`project`/`credential*` being `false` is normal — `search`/`freq`/`stats`/
-`db` don't need a project or any credential; `healthy` only tracks
-`db_ready` + version compatibility (see AGENTS.md).
+Проверок проекта и credentials нет — bukvarix ими не пользуется;
+`healthy` = все четыре проверки `ok` (на практике — `db_ready`).
 
 ## db — обслуживание (деструктивно, требует --confirm)
 
