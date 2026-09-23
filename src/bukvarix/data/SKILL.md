@@ -45,9 +45,12 @@ uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
   `stats --json` always works and reports `keywords_rows: 0` in that case.
   `db set-path PATH` points the CLI at an existing `.duckdb` file;
   `BUKVARIX_DB_PATH` overrides it for one process/session.
-- **Two speeds.** `freq` is an indexed lookup (ms). `search` without
-  `--mode exact` is a full unindexed scan (seconds to tens of seconds on
-  common words) — expect it, don't assume a hang.
+- **Speeds.** `freq` is an indexed lookup (ms). Default `search` uses a
+  lemma index when it's built (`"engine": "postings"`, 0.1-0.4s); if the
+  JSON says `"engine": "scan"`, it's a full scan (16-35s) — expect it,
+  don't assume a hang, and tell the user `bukvarix db build-postings`
+  would fix it. Results match whole lemmas, word order and form don't
+  matter, stop words ("в", "для", "как") are ignored unless forced with `+`.
 - **`--non-interactive`** on anything that could prompt. It fails with a
   structured error instead of hanging. It is a global option — put it
   before the command (`bukvarix --non-interactive db ...`); after the
@@ -57,7 +60,7 @@ uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
 
 ## Destructive commands — always get explicit sign-off first
 
-`db import-keywords`, `db normalize` and `db reindex` mutate the live,
+`db import-keywords`, `db normalize`, `db reindex` and `db build-postings` mutate the live,
 tens-of-gigabytes database file in place, with **no automatic backup**.
 `db import-keywords` in particular replaces the entire keywords table —
 anything `normalize`/`reindex` built on top of it is gone too. Their

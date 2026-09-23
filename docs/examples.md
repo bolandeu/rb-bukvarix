@@ -5,12 +5,14 @@
 весь `--json`-вывод обёрнут в конверт `{"ok": true/false, ...}` (см.
 AGENTS.md, "Контракт вывода"). `elapsed_seconds` в реальном выводе —
 полное дробное число (`0.07281408295966685`); здесь округлено для
-читаемости. Время `search` плавает от прогона к прогону (15-30 с).
+читаемости. Время `search` с постингами — 0.1-0.4 с, без них (`engine:
+scan`) — 16-35 с и плавает от прогона к прогону.
 
 ## search — основная команда (умный дефолт, строгий AND по леммам)
 
 Одним вызовом — частотность самой фразы и список похожих в глубину
-(порядок слов, словоформы не важны, но **все** слова запроса обязательны):
+(порядок слов, словоформы не важны, но **все** слова запроса обязательны
+как целые леммы; стоп-слова без `+` игнорируются):
 
 ```
 $ bukvarix search "растаможка авто" --limit 5
@@ -20,9 +22,9 @@ $ bukvarix search "растаможка авто" --limit 5
 растаможка авто 466
 калькулятор растаможки авто в россии 2025       418
 авто из кореи под заказ в россию с растаможкой цены     166
-... показано 5 из 1824, задайте --limit 1824 чтобы увидеть все
-сумма по всем 1824 похожим: 12188
-(15.019s)
+... показано 5 из 1550, задайте --limit 1550 чтобы увидеть все
+сумма по всем 1550 похожим: 11387
+(0.085s, engine: postings)
 ```
 
 Тот же запрос с `--json`:
@@ -31,9 +33,9 @@ $ bukvarix search "растаможка авто" --limit 5
 $ bukvarix search "растаможка авто" --limit 5 --json
 {"ok": true, "query": "растаможка авто", "mode": "default",
  "results": [{"phrase": "калькулятор растаможки авто", "freq_msk_exact": 1631}, {"phrase": "растаможка авто калькулятор", "freq_msk_exact": 1021}, {"phrase": "растаможка авто", "freq_msk_exact": 466}, {"phrase": "калькулятор растаможки авто в россии 2025", "freq_msk_exact": 418}, {"phrase": "авто из кореи под заказ в россию с растаможкой цены", "freq_msk_exact": 166}],
- "elapsed_seconds": 15.02,
+ "elapsed_seconds": 0.093,
  "self": {"phrase": "растаможка авто", "freq_msk_exact": 466, "matched_via": "exact"},
- "total_count": 1824, "total_freq_sum": 12188}
+ "total_count": 1550, "total_freq_sum": 11387, "engine": "postings"}
 ```
 
 `-слово` — исключить, `self` при этом `null` (нет единой "канонической
@@ -43,8 +45,13 @@ $ bukvarix search "растаможка авто" --limit 5 --json
 $ bukvarix search "растаможка авто -калькулятор" --limit 5 --json
 {"ok": true, "query": "растаможка авто -калькулятор", "mode": "default",
  "results": [{"phrase": "растаможка авто", "freq_msk_exact": 466}, {"phrase": "авто из кореи под заказ в россию с растаможкой цены", "freq_msk_exact": 166}, ...],
- "elapsed_seconds": 30.51, "self": null, "total_count": 1517, "total_freq_sum": 7306}
+ "elapsed_seconds": 0.092, "self": null, "total_count": 1280, "total_freq_sum": 6699, "engine": "postings"}
 ```
+
+Тот же запрос старым движком (`--mode scan`, полный скан по подстроке):
+1 824 фразы вместо 1 550 и ~16 с вместо 0.09 с. Лишние 274 — подстрочные
+совпадения вроде «растаможки автомобиля» («авто» внутри «автомобиль»).
+Сравнение движков на 12 запросах — `docs/build.md`, проблема 6.
 
 `(a|b)` группы **не поддерживаются** — скобки и `|` воспринимаются как
 буквальный текст запроса, не как оператор (сознательно убрано, работа
@@ -144,7 +151,7 @@ $ bukvarix doctor --json
 $ bukvarix db import-keywords keywords213.tsv --dry-run --json
 {"ok": true, "would_import": "keywords213.tsv", "db_path": "/Users/bolandau/Projects/tools/bukvarix/bukvarix.duckdb"}
 
-$ bukvarix db import-keywords keywords213.tsv --non-interactive --json
+$ bukvarix --non-interactive db import-keywords keywords213.tsv --json
 {"ok": false, "error": {"code": "INVALID_ARGUMENTS", "message": "This replaces the entire keywords table in ... — make sure you have a backup requires --confirm when --non-interactive is set."}}
 
 $ bukvarix db import-keywords keywords213.tsv --confirm --json

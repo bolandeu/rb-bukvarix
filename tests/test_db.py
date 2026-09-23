@@ -227,3 +227,15 @@ def test_build_lemma_postings_chunks_keep_global_sort(normalized_db: Path, tmp_p
     con.close()
     assert rows == sorted(rows)
     assert len(rows) == result["postings_rows"]
+
+
+def test_search_smart_postings_ignores_unforced_stopword(postings_db: Path) -> None:
+    # Wordstat semantics: "в" without "+" doesn't narrow the result
+    with_stop = db.search_smart(postings_db, "продажа в авто", 20)
+    without = db.search_smart(postings_db, "продажа авто", 20)
+    assert with_stop["results"] == without["results"]
+    assert with_stop["total_count"] == without["total_count"] == 2
+
+
+def test_search_smart_postings_stopword_only_query_keeps_it(postings_db: Path) -> None:
+    assert _phrases(db.search_smart(postings_db, "в", 20)) == ["авто в москве"]

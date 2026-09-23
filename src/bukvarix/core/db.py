@@ -250,7 +250,7 @@ def build_lemma_postings(
             CREATE TABLE lemma_postings_meta AS
             SELECT (SELECT count(*) FROM keywords) AS keywords_rows,
                    (SELECT count(*) FROM lemma_postings) AS postings_rows,
-                   now() AS built_at
+                   now()::TIMESTAMP AS built_at  -- plain TIMESTAMP: TIMESTAMPTZ needs pytz to fetch in Python
             """
         )
         keywords_rows, postings_rows = _fetchone(con, "SELECT keywords_rows, postings_rows FROM lemma_postings_meta")
@@ -454,7 +454,20 @@ def search_smart(db_path: Path, query: str, limit: int, *, force_scan: bool = Fa
             return {"self": self_result, "results": [], "total_count": 0, "total_freq_sum": 0, "engine": engine}
 
         if use_postings:
-            return {"self": self_result, **_search_postings(con, required, excluded, limit), "engine": engine}
+            # Like Wordstat, a stop word only counts when forced with `+`:
+            # "авто в растаможка" must find everything "растаможка авто"
+            # does (812 vs 1824 phrases otherwise). The scan path gets this
+            # for free — '%в%' matches almost any phrase. A query made only
+            # of stop words keeps them, or it would match nothing.
+            from bukvarix.core.normalize import STOPWORDS
+
+            stop = set(STOPWORDS) - set(parsed.forced)
+            content = [lem for w, lem in zip(parsed.required, required, strict=True) if w not in stop]
+            return {
+                "self": self_result,
+                **_search_postings(con, content or required, excluded, limit),
+                "engine": engine,
+            }
 
         conditions = [f"{col} NOT ILIKE '%' || ? || '%'" for _ in excluded]
         params: list = list(excluded)
