@@ -61,8 +61,9 @@ def check_cli_compat(config: ProjectConfig) -> None:
 def load_config(project_root: Path, *, check_compat: bool = True) -> ProjectConfig:
     """Load and validate the project config, enforcing `cli.min_version` by default.
 
-    Only `doctor` passes `check_compat=False` — it reports the mismatch as
-    one of its checks instead of failing on it.
+    `check_compat=False` reads the config without failing on a version
+    mismatch; no command passes it today (`doctor` no longer checks the
+    project config).
     """
     data = tomllib.loads(config_path(project_root).read_text())
     config = ProjectConfig.model_validate(data)

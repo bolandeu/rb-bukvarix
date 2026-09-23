@@ -1,6 +1,7 @@
 # Bukvarix
 
-Local Wordstat-like CLI over Bukvarix keyword/SERP dumps.
+Local Wordstat-like CLI over a Bukvarix keyword dump (Moscow, frequencies
+only — no SERP data).
 
 ## Development
 

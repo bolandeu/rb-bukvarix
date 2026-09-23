@@ -77,8 +77,9 @@ def store_backend() -> str | None:
 
     `keyring` falls back to its `fail` backend on a machine without a
     secret service (headless Linux, some containers) — reads and writes
-    then raise, and only env vars can supply credentials. `doctor` reports
-    this so it isn't discovered from a confusing `auth login` failure.
+    then raise, and only env vars can supply credentials. Not called
+    anywhere today — `doctor` stopped reporting the credential store,
+    since bukvarix has no external API.
     """
     backend = keyring.get_keyring()
     if isinstance(backend, fail.Keyring):
