@@ -69,6 +69,15 @@ write them at release time.
   changes are made in a `feature/*` branch, and every search/build
   experiment (successful or rolled back) is recorded in `docs/build.md`.
 
+### Removed
+
+- The unused FTS index left over from the rolled-back BM25 experiment
+  (`fts_main_keywords` schema, 6 tables incl. `terms` with 463.6M rows) is
+  dropped from the working database; a copy stays in the backup on
+  `/Volumes/Data`. The file did **not** shrink (45.41 GB): DuckDB keeps the
+  ~4.0 GB of freed blocks for reuse and returns them only if the file is
+  rebuilt.
+
 ### Fixed
 
 Every error hit along the way is listed here, including ones made while
