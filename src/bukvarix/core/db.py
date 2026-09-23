@@ -75,6 +75,9 @@ def import_keywords(db_path: Path, tsv_path: Path) -> dict:
         )
         deduped_rows = _fetchone(con, "SELECT count(*) FROM keywords")[0]
 
+        # keywords was recreated, so rowids changed: postings pointing at
+        # the old table would silently return wrong phrases.
+        drop_lemma_postings(con)
         con.execute("CHECKPOINT")
         return {
             "raw_rows": raw_rows,
@@ -117,6 +120,147 @@ def build_indexes(db_path: Path) -> None:
         con.execute("CHECKPOINT")
     finally:
         con.close()
+
+
+def _has_column(con: duckdb.DuckDBPyConnection, table: str, column: str) -> bool:
+    return bool(
+        con.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?", [table, column]
+        ).fetchone()
+    )
+
+
+def _has_table(con: duckdb.DuckDBPyConnection, table: str) -> bool:
+    return bool(con.execute("SELECT 1 FROM information_schema.tables WHERE table_name = ?", [table]).fetchone())
+
+
+def drop_lemma_postings(con: duckdb.DuckDBPyConnection) -> None:
+    """Invalidate the postings: they reference keywords by rowid, which is
+    only stable until keywords is recreated or its lemma_signature changes.
+    """
+    con.execute("DROP TABLE IF EXISTS lemma_postings")
+    con.execute("DROP TABLE IF EXISTS lemma_postings_meta")
+
+
+def build_lemma_postings(db_path: Path, *, temp_directory: Path | None = None) -> dict:
+    """Build the inverted index `lemma_postings(lemma, kw_id, freq)` for search_smart().
+
+    One row per (lemma, phrase containing it), sorted by lemma so a
+    `WHERE lemma = ?` lookup reads only the matching row groups (zone maps —
+    no ART index: on ~480M VARCHAR rows that would take hours and tens of GB,
+    see docs/build.md problems 1 and 3). `kw_id` is keywords.rowid, not an
+    explicit column: adding one would mean an UPDATE over 113.7M rows of a
+    table with three ART indexes. `freq` is denormalized from keywords so
+    count/sum/top-N come from the postings alone and keywords is only
+    touched for the final N phrases (by rowid, ~40ms instead of a ~1s join).
+
+    Tokens are str_split(lemma_signature, ' ') — the same lemmas
+    _lemmatize_words_list() produces for query words (both via word_lemmas,
+    coalesce(lemma, word)), so a query lemma matches a posting byte-for-byte.
+    All lemmas are indexed, stop words included, so `+в` keeps working.
+
+    lemma_postings_meta.keywords_rows guards against drift: search_smart()
+    ignores the postings if keywords' row count no longer matches.
+    """
+    from bukvarix.core.errors import CliError
+
+    con = connect(db_path)
+    try:
+        if not _has_column(con, "keywords", "lemma_signature"):
+            raise CliError(
+                "DATABASE_NOT_READY",
+                "keywords has no lemma_signature column yet — postings are built from it.",
+                action="Run 'bukvarix db normalize' first.",
+            )
+        con.execute("PRAGMA preserve_insertion_order = false")
+        con.execute("SET memory_limit = '10GB'")
+        if temp_directory:
+            con.execute("SET temp_directory = ?", [str(temp_directory)])
+        drop_lemma_postings(con)
+        con.execute(
+            """
+            CREATE TABLE lemma_postings AS
+            SELECT tok.lemma AS lemma, k.rowid AS kw_id, k.freq_msk_exact AS freq
+            FROM keywords k, UNNEST(str_split(k.lemma_signature, ' ')) AS tok(lemma)
+            WHERE tok.lemma != ''
+            ORDER BY lemma, kw_id
+            """
+        )
+        con.execute(
+            """
+            CREATE TABLE lemma_postings_meta AS
+            SELECT (SELECT count(*) FROM keywords) AS keywords_rows,
+                   (SELECT count(*) FROM lemma_postings) AS postings_rows,
+                   now() AS built_at
+            """
+        )
+        keywords_rows, postings_rows = _fetchone(con, "SELECT keywords_rows, postings_rows FROM lemma_postings_meta")
+        con.execute("CHECKPOINT")
+        return {"keywords_rows": keywords_rows, "postings_rows": postings_rows}
+    finally:
+        con.close()
+
+
+def _postings_usable(con: duckdb.DuckDBPyConnection) -> bool:
+    """True if lemma_postings exists and was built over the current keywords table."""
+    if not _has_table(con, "lemma_postings_meta"):
+        return False
+    meta = con.execute("SELECT keywords_rows FROM lemma_postings_meta").fetchone()
+    current = _fetchone(con, "SELECT count(*) FROM keywords")[0]
+    if meta is None or meta[0] != current:
+        import sys
+
+        print(
+            f"warning: lemma_postings is stale (built over {meta[0] if meta else '?'} rows, keywords has "
+            f"{current}) — falling back to a full scan; rebuild with 'bukvarix db build-postings'",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _search_postings(con: duckdb.DuckDBPyConnection, required: list[str], excluded: list[str], limit: int) -> dict:
+    """AND over the query lemmas as an intersection of posting lists, minus excluded.
+
+    A word with no postings means no phrase contains it, so the result is
+    empty — no substring fallback (that was the scan path's defect: '%авто%'
+    also matched 'автосервис').
+    """
+    required = list(dict.fromkeys(required))
+    excluded = [w for w in dict.fromkeys(excluded) if w not in required]
+    empty = {"results": [], "total_count": 0, "total_freq_sum": 0}
+
+    counts = dict(
+        con.execute(
+            "SELECT lemma, count(*) FROM lemma_postings WHERE lemma IN (SELECT unnest(?)) GROUP BY lemma", [required]
+        ).fetchall()
+    )
+    if len(counts) < len(required):
+        return empty
+    required.sort(key=lambda w: counts[w])  # rarest first: smallest intermediate sets
+
+    posting = "SELECT kw_id, freq FROM lemma_postings WHERE lemma = ?"
+    # INTERSECT/EXCEPT are set operations (distinct), and INTERSECT binds
+    # tighter than EXCEPT: (w1 ∩ w2 ∩ ...) − x1 − x2. Only placeholders are
+    # interpolated; the words themselves go in as parameters.
+    sql = "SELECT DISTINCT kw_id, freq FROM lemma_postings WHERE lemma = ?"
+    sql += f" INTERSECT ({posting})" * (len(required) - 1)
+    sql += f" EXCEPT ({posting})" * len(excluded)
+    con.execute(f"CREATE OR REPLACE TEMP TABLE _hits AS {sql}", [*required, *excluded])
+
+    total_count, total_freq_sum = _fetchone(con, "SELECT count(*), coalesce(sum(freq), 0) FROM _hits")
+    top = con.execute("SELECT kw_id, freq FROM _hits ORDER BY freq DESC, kw_id LIMIT ?", [limit]).fetchall()
+    phrases = dict(
+        con.execute(
+            "SELECT rowid, phrase FROM keywords WHERE rowid IN (SELECT unnest(?))", [[kw_id for kw_id, _ in top]]
+        ).fetchall()
+    )
+    con.execute("DROP TABLE _hits")
+    return {
+        "results": [{"phrase": phrases[kw_id], "freq_msk_exact": freq} for kw_id, freq in top],
+        "total_count": total_count,
+        "total_freq_sum": total_freq_sum,
+    }
 
 
 def _signature(phrase: str) -> str:
@@ -197,23 +341,27 @@ def _exact_lookup(con: duckdb.DuckDBPyConnection, query: str) -> tuple[dict | No
     return None, None
 
 
-def search_smart(db_path: Path, query: str, limit: int) -> dict:
+def search_smart(db_path: Path, query: str, limit: int, *, force_scan: bool = False) -> dict:
     """Default search behavior — mirrors how real Wordstat answers a query:
     both the phrase's own frequency (`self`, via the tiered exact lookup)
     AND a depth list of related phrases (`results`), in one response.
 
-    The depth list matches on `lemma_signature` (word order AND word form
-    insensitive) via a strict AND-of-ILIKE scan — falls back to `phrase`
-    if normalize() hasn't run yet, same degrade-gracefully approach as
-    _exact_lookup(). This is looser than --mode words (which only ignores
-    order, not form) — same accuracy tradeoff already accepted for `freq`.
+    The depth list is a strict AND over the query's lemmas (word order AND
+    word form insensitive), computed one of two ways — `engine` in the
+    result says which:
+
+    - "postings": intersection of lemma_postings lists (see
+      build_lemma_postings()). Whole-word match, sub-second.
+    - "scan": AND-of-ILIKE over lemma_signature (or `phrase` if normalize()
+      hasn't run), 16-30s+ on 113.7M rows. Used when the postings are
+      missing or stale, or on request (`--mode scan`). Substring match:
+      '%авто%' also hits 'автосервис', so it can return more than postings.
 
     ⚠️ FTS/BM25 was tried here (see docs/build.md problem 5) and reverted: BM25
     is OR-semantics (ranks phrases with ANY query word), so a query
     containing a common word (e.g. the preposition "в") matched millions
     of largely-unrelated rows — both slower than the plain AND scan AND
-    wrong. AND/ILIKE is slower per query (16-30s+) but always correct: a
-    phrase only counts if it contains every query word (as lemmas).
+    wrong. Postings keep AND semantics: an intersection only narrows.
 
     Also recognizes +word/-word operators (see query_syntax.py) right here
     in the default, lemmatized — unlike --mode query, which is literal.
@@ -238,8 +386,14 @@ def search_smart(db_path: Path, query: str, limit: int) -> dict:
         required = _lemmatize_words_list(con, parsed.required) if has_lemma_col else parsed.required
         excluded = _lemmatize_words_list(con, parsed.excluded) if has_lemma_col else parsed.excluded
 
+        use_postings = has_lemma_col and not force_scan and _postings_usable(con)
+        engine = "postings" if use_postings else "scan"
+
         if not required:
-            return {"self": self_result, "results": [], "total_count": 0, "total_freq_sum": 0}
+            return {"self": self_result, "results": [], "total_count": 0, "total_freq_sum": 0, "engine": engine}
+
+        if use_postings:
+            return {"self": self_result, **_search_postings(con, required, excluded, limit), "engine": engine}
 
         conditions = [f"{col} NOT ILIKE '%' || ? || '%'" for _ in excluded]
         params: list = list(excluded)
@@ -259,6 +413,7 @@ def search_smart(db_path: Path, query: str, limit: int) -> dict:
             "results": results,
             "total_count": total_count,
             "total_freq_sum": total_freq_sum,
+            "engine": engine,
         }
     finally:
         con.close()

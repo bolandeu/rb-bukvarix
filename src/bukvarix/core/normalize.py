@@ -163,6 +163,14 @@ def add_lemma_signature(con: duckdb.DuckDBPyConnection) -> int:
     con.execute("SET memory_limit = '10GB'")
     con.execute("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS lemma_signature VARCHAR")
 
+    # lemma_postings is built from lemma_signature — drop it if any row is
+    # about to get a (new) signature, so search can't read stale postings.
+    # A fully normalized table is left alone: rebuilding postings is costly.
+    if _fetchone(con, "SELECT count(*) FROM keywords WHERE lemma_signature IS NULL")[0]:
+        from bukvarix.core.db import drop_lemma_postings
+
+        drop_lemma_postings(con)
+
     n_chunks = 24
     for i in range(n_chunks):
         con.execute(

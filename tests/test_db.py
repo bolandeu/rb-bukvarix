@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from bukvarix.core import db
 
 
@@ -106,3 +108,110 @@ def test_stats_on_missing_db_reports_zero(tmp_path: Path) -> None:
     assert result["keywords_rows"] == 0
     assert result["tables"] == []
     assert result["db_size_bytes"] == 0
+
+
+def _phrases(result: dict) -> list[str]:
+    return [r["phrase"] for r in result["results"]]
+
+
+def test_search_smart_postings_matches_scan_on_whole_words(postings_db: Path) -> None:
+    for query in ["авто продажа", "купить авто", "продажа -дешево", "москве", "растаможки"]:
+        postings = db.search_smart(postings_db, query, 20)
+        scan = db.search_smart(postings_db, query, 20, force_scan=True)
+        assert postings["engine"] == "postings"
+        assert scan["engine"] == "scan"
+        for key in ("self", "results", "total_count", "total_freq_sum"):
+            assert postings[key] == scan[key], (query, key)
+
+
+def test_search_smart_postings_is_whole_word(postings_db: Path) -> None:
+    # lemma "автомобиль" contains the substring "авто": the scan matches it,
+    # postings don't — an intentional change from substring to whole-word.
+    postings = db.search_smart(postings_db, "авто", 20)
+    scan = db.search_smart(postings_db, "авто", 20, force_scan=True)
+    assert "растаможки автомобиля" in _phrases(scan)
+    assert "растаможки автомобиля" not in _phrases(postings)
+    assert postings["total_count"] == scan["total_count"] - 1
+    assert postings["total_freq_sum"] == 500 + 300 + 50 + 80 + 40
+
+
+def test_search_smart_postings_lemmatizes_query(postings_db: Path) -> None:
+    # "растаможки" -> "растаможка": both растаможка phrases match
+    result = db.search_smart(postings_db, "растаможки", 20)
+    assert result["engine"] == "postings"
+    assert _phrases(result) == ["растаможка авто", "растаможки автомобиля"]
+
+
+def test_search_smart_postings_excluded(postings_db: Path) -> None:
+    result = db.search_smart(postings_db, "авто -дешево", 20)
+    assert result["engine"] == "postings"
+    assert result["self"] is None
+    assert "продажа авто дешево" not in _phrases(result)
+    assert "продажа авто" in _phrases(result)
+
+
+def test_search_smart_postings_stopword_is_searchable(postings_db: Path) -> None:
+    result = db.search_smart(postings_db, "+в авто", 20)
+    assert _phrases(result) == ["авто в москве"]
+
+
+def test_search_smart_postings_respects_limit_and_order(postings_db: Path) -> None:
+    result = db.search_smart(postings_db, "авто", 2)
+    assert _phrases(result) == ["продажа авто", "купить авто"]
+    assert result["total_count"] == 5
+
+
+def test_search_smart_unknown_word_is_empty(postings_db: Path) -> None:
+    result = db.search_smart(postings_db, "авто звездолёт", 20)
+    assert result["engine"] == "postings"
+    assert result["results"] == []
+    assert result["total_count"] == 0
+    assert result["total_freq_sum"] == 0
+
+
+def test_search_smart_falls_back_to_scan_without_postings(normalized_db: Path) -> None:
+    assert db.search_smart(normalized_db, "авто", 20)["engine"] == "scan"
+
+
+def test_search_smart_ignores_stale_postings(postings_db: Path, capsys) -> None:
+    con = db.connect(postings_db)
+    con.execute("UPDATE lemma_postings_meta SET keywords_rows = keywords_rows + 1")
+    con.close()
+    assert db.search_smart(postings_db, "авто", 20)["engine"] == "scan"
+    assert "stale" in capsys.readouterr().err
+
+
+def test_build_lemma_postings_meta(postings_db: Path) -> None:
+    con = db.connect(postings_db, read_only=True)
+    keywords_rows, postings_rows = db._fetchone(con, "SELECT keywords_rows, postings_rows FROM lemma_postings_meta")
+    assert keywords_rows == db._fetchone(con, "SELECT count(*) FROM keywords")[0]
+    # one posting per word of every phrase
+    assert postings_rows == db._fetchone(con, "SELECT sum(len(str_split(lemma_signature, ' '))) FROM keywords")[0]
+    # every posting points at a phrase that really contains that lemma, with its freq
+    bad = db._fetchone(
+        con,
+        """
+        SELECT count(*) FROM lemma_postings p JOIN keywords k ON k.rowid = p.kw_id
+        WHERE NOT list_contains(str_split(k.lemma_signature, ' '), p.lemma) OR p.freq != k.freq_msk_exact
+        """,
+    )[0]
+    assert bad == 0
+    con.close()
+
+
+def test_build_lemma_postings_requires_normalize(imported_db: Path) -> None:
+    from bukvarix.core.errors import CliError
+
+    with pytest.raises(CliError) as exc:
+        db.build_lemma_postings(imported_db)
+    assert exc.value.code == "DATABASE_NOT_READY"
+
+
+def test_import_keywords_drops_postings(postings_db: Path, small_tsv: Path) -> None:
+    db.import_keywords(postings_db, small_tsv)
+    assert "lemma_postings" not in db.stats(postings_db)["tables"]
+
+
+def test_normalize_keeps_postings_when_nothing_changes(postings_db: Path) -> None:
+    db.normalize(postings_db)  # already normalized -> no signature recomputed
+    assert "lemma_postings" in db.stats(postings_db)["tables"]

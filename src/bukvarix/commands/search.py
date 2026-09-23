@@ -12,7 +12,7 @@ from ..core.db import search as db_search
 from ..core.db import search_smart
 from ..core.errors import InvalidArguments
 
-_MODES = {"contains", "words", "prefix", "exact", "query"}
+_MODES = {"contains", "words", "prefix", "exact", "query", "scan"}
 
 
 @output.guard
@@ -22,7 +22,7 @@ def search(
     mode: str | None = typer.Option(
         None,
         "--mode",
-        help="без флага — умный дефолт (self + похожие фразы, порядок/форма слов не важны, как в Wordstat) | contains | words | prefix | exact | query",
+        help="без флага — умный дефолт (self + похожие фразы, порядок/форма слов не важны, как в Wordstat) | contains | words | prefix | exact | query | scan",
     ),
     limit: int = typer.Option(20, "--limit"),
     csv_path: Path | None = typer.Option(None, "--csv", help="Сохранить результаты в CSV вместо печати"),
@@ -40,6 +40,8 @@ def search(
     --mode exact: только единственная каноническая фраза (после дедупа перестановок)
     --mode query: буквальные операторы +слово/-слово (без лемм)
       например "+в москве -недорого"
+    --mode scan: то же, что дефолт, но полным сканом без индекса лемм
+      (медленно; ищет по подстроке — для сверки с индексом)
     """
     if mode is not None and mode not in _MODES:
         raise InvalidArguments(f"Invalid --mode: {mode!r}. Use {'|'.join(sorted(_MODES))}.")
@@ -48,13 +50,14 @@ def search(
     services.require_db_ready(db_path)
 
     t0 = time.perf_counter()
-    if mode is None:
-        smart = search_smart(db_path, query, limit)
+    if mode in (None, "scan"):
+        smart = search_smart(db_path, query, limit, force_scan=mode == "scan")
         self_result, results = smart["self"], smart["results"]
         total_count, total_freq_sum = smart["total_count"], smart["total_freq_sum"]
+        engine = smart["engine"]
     else:
         self_result, results = None, db_search(db_path, query, mode, limit)
-        total_count = total_freq_sum = None
+        total_count = total_freq_sum = engine = None
     elapsed = time.perf_counter() - t0
 
     if csv_path:
@@ -71,8 +74,9 @@ def search(
         return
 
     payload = {"query": query, "mode": mode or "default", "results": results, "elapsed_seconds": elapsed}
-    if mode is None:
+    if mode in (None, "scan"):
         payload["self"] = self_result
         payload["total_count"] = total_count
         payload["total_freq_sum"] = total_freq_sum
+        payload["engine"] = engine
     output.emit_success(ctx, payload, render_human=output.human.render_search)

@@ -6,7 +6,7 @@ import typer
 
 from .. import output
 from ..core import services
-from ..core.db import build_indexes, import_keywords
+from ..core.db import build_indexes, build_lemma_postings, import_keywords
 from ..core.db import normalize as db_normalize
 
 app = output.group("Обслуживание базы данных (не часть обычного поиска — см. 'bukvarix search --help').")
@@ -142,3 +142,47 @@ def reindex_cmd(
     output.vecho(ctx, f"Building indexes on {db_path} ...")
     build_indexes(db_path)
     output.emit_success(ctx, {"db_path": str(db_path)}, render_human=lambda d: output.human.echo("Done."))
+
+
+@app.command("build-postings")
+@output.guard
+def build_postings_cmd(
+    ctx: typer.Context,
+    temp_dir: Path | None = typer.Option(
+        None, "--temp-dir", help="Каталог для временных файлов сортировки (по умолчанию — рядом с базой)."
+    ),
+    confirm: bool = output.ConfirmOption,
+    dry_run: bool = output.DryRunOption,
+    json_output: bool = output.JsonOption,
+    quiet: bool = output.QuietOption,
+    verbose: bool = output.VerboseOption,
+) -> None:
+    """Построить инвертированный индекс лемм (lemma_postings) для быстрого search.
+
+    Нужен после normalize; пересобирать после каждого import-keywords/normalize
+    (они сбрасывают постинги, и search до пересборки работает полным сканом).
+    Долго и растит файл базы на несколько ГБ; сортировка пишет временные
+    файлы — нужно свободное место на диске. Сделайте бэкап файла базы заранее
+    (см. AGENTS.md).
+    """
+    db_path = services.resolve_db_path()
+    services.require_db_ready(db_path)
+    if output.is_dry_run(ctx):
+        output.emit_success(
+            ctx,
+            {"db_path": str(db_path)},
+            render_human=lambda d: output.human.echo(f"Dry run: would (re)build lemma_postings in {d['db_path']}."),
+        )
+        return
+    output.require_confirmation(
+        ctx, f"This (re)builds lemma_postings in {db_path} (slow, grows the file by several GB)", confirm
+    )
+    output.vecho(ctx, f"Building lemma_postings on {db_path} ...")
+    result = build_lemma_postings(db_path, temp_directory=temp_dir)
+    output.emit_success(
+        ctx,
+        result,
+        render_human=lambda d: output.human.echo(
+            f"Done: {d['postings_rows']:,} postings over {d['keywords_rows']:,} phrases."
+        ),
+    )

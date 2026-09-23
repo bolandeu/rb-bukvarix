@@ -50,3 +50,10 @@ def normalized_db(imported_db: Path) -> Path:
     """imported_db, plus content_signature/lemma_signature populated."""
     bukvarix_db.normalize(imported_db)
     return imported_db
+
+
+@pytest.fixture
+def postings_db(normalized_db: Path) -> Path:
+    """normalized_db, plus the lemma_postings inverted index."""
+    bukvarix_db.build_lemma_postings(normalized_db)
+    return normalized_db

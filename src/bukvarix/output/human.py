@@ -28,18 +28,20 @@ def render_doctor(checks: list[dict]) -> None:
 def render_search(data: dict) -> None:
     self_result = data.get("self")
     results = data["results"]
-    if data["mode"] == "default" and self_result:
+    smart = data["mode"] in ("default", "scan")
+    if smart and self_result:
         console.print(f"[bold]{self_result['phrase']}: {self_result['freq_msk_exact']}[/bold]")
     for r in results:
         console.print(f"{r['phrase']}\t{r['freq_msk_exact']}")
     total_count = data.get("total_count")
-    if data["mode"] == "default" and total_count is not None:
+    if smart and total_count is not None:
         if total_count > len(results):
             console.print(
                 f"[dim]... показано {len(results)} из {total_count}, задайте --limit {total_count} чтобы увидеть все[/dim]"
             )
         console.print(f"[dim]сумма по всем {total_count} похожим: {data['total_freq_sum']}[/dim]")
-    console.print(f"[dim]({data['elapsed_seconds']:.3f}s)[/dim]")
+    engine = f", engine: {data['engine']}" if data.get("engine") else ""
+    console.print(f"[dim]({data['elapsed_seconds']:.3f}s{engine})[/dim]")
 
 
 def render_freq(data: dict) -> None:
