@@ -8,6 +8,15 @@ write them at release time.
 
 ## [Unreleased]
 
+### Fixed
+
+- The global `bukvarix` (`~/.local/bin`, used from any shell) was a
+  non-editable snapshot of 0.1.0, not the editable install AGENTS.md
+  described: after the 0.2.0 release it still ran the old 17.5s scan with
+  no `engine` field, while every check had gone through the project
+  `.venv`. Reinstalled with `uv tool install --editable . --force`; AGENTS.md
+  now says how to check it.
+
 ## [0.2.0] - 2026-09-23
 
 ### Changed
