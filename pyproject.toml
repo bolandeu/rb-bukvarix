@@ -1,6 +1,6 @@
 [project]
 name = "bukvarix"
-version = "0.1.0"
+version = "0.2.0"
 description = "Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix"
 readme = "README.md"
 authors = [{ name = "net.paradox" }]

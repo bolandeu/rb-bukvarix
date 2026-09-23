@@ -8,6 +8,8 @@ write them at release time.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
 ### Changed
 
 - `search` results match **whole lemmas**, not substrings, and ignore stop
@@ -74,9 +76,11 @@ write them at release time.
 - The unused FTS index left over from the rolled-back BM25 experiment
   (`fts_main_keywords` schema, 6 tables incl. `terms` with 463.6M rows) is
   dropped from the working database; a copy stays in the backup on
-  `/Volumes/Data`. The file did **not** shrink (45.41 GB): DuckDB keeps the
-  ~4.0 GB of freed blocks for reuse and returns them only if the file is
-  rebuilt.
+  `/Volumes/Data`. The drop alone did not shrink the file (DuckDB keeps
+  freed blocks for reuse), so the database was rebuilt into a fresh file:
+  45.41 → 41.32 GB, answers identical (docs/build.md, problem 6). The
+  rebuilt db is backed up as
+  `/Volumes/Data/bukvarix/bukvarix.duckdb.backup_v0.2.0`.
 
 ### Fixed
 

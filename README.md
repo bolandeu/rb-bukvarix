@@ -76,7 +76,7 @@ itself, run `copier update` in this repo.
 
 ## The database
 
-`bukvarix` queries a single DuckDB file (~44GB on the real Moscow dump, not
+`bukvarix` queries a single DuckDB file (~41GB on the real Moscow dump, not
 committed to this repo). Path resolution, in order:
 
 1. `BUKVARIX_DB_PATH` env var — explicit override for one process/session.
