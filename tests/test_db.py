@@ -215,3 +215,15 @@ def test_import_keywords_drops_postings(postings_db: Path, small_tsv: Path) -> N
 def test_normalize_keeps_postings_when_nothing_changes(postings_db: Path) -> None:
     db.normalize(postings_db)  # already normalized -> no signature recomputed
     assert "lemma_postings" in db.stats(postings_db)["tables"]
+
+
+def test_build_lemma_postings_chunks_keep_global_sort(normalized_db: Path, tmp_path: Path) -> None:
+    staging_dir = tmp_path / "staging"
+    result = db.build_lemma_postings(normalized_db, temp_directory=staging_dir, chunk_rows=3)
+    assert result["chunks"] > 1
+    assert not list(staging_dir.glob("*.duckdb*"))  # staging file cleaned up
+    con = db.connect(normalized_db, read_only=True)
+    rows = con.execute("SELECT lemma, kw_id FROM lemma_postings").fetchall()
+    con.close()
+    assert rows == sorted(rows)
+    assert len(rows) == result["postings_rows"]

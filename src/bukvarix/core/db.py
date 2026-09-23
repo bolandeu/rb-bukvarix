@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import duckdb
@@ -134,6 +135,10 @@ def _has_table(con: duckdb.DuckDBPyConnection, table: str) -> bool:
     return bool(con.execute("SELECT 1 FROM information_schema.tables WHERE table_name = ?", [table]).fetchone())
 
 
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
 def drop_lemma_postings(con: duckdb.DuckDBPyConnection) -> None:
     """Invalidate the postings: they reference keywords by rowid, which is
     only stable until keywords is recreated or its lemma_signature changes.
@@ -142,7 +147,13 @@ def drop_lemma_postings(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("DROP TABLE IF EXISTS lemma_postings_meta")
 
 
-def build_lemma_postings(db_path: Path, *, temp_directory: Path | None = None) -> dict:
+def build_lemma_postings(
+    db_path: Path,
+    *,
+    temp_directory: Path | None = None,
+    chunk_rows: int = 20_000_000,
+    progress: Callable[[str], None] | None = None,
+) -> dict:
     """Build the inverted index `lemma_postings(lemma, kw_id, freq)` for search_smart().
 
     One row per (lemma, phrase containing it), sorted by lemma so a
@@ -161,8 +172,23 @@ def build_lemma_postings(db_path: Path, *, temp_directory: Path | None = None) -
 
     lemma_postings_meta.keywords_rows guards against drift: search_smart()
     ignores the postings if keywords' row count no longer matches.
+
+    Built in lemma-range chunks, not one ORDER BY: a single sort of the
+    ~484M postings OOM'd at 9.3GB (docs/build.md problem 6). Instead the
+    unsorted postings go to a staging DuckDB file in `temp_directory`
+    (default: next to the db; point it at another disk to spare this one),
+    the lemma alphabet is cut into ranges of ~`chunk_rows` postings each,
+    and each range is inserted already sorted. Ranges are appended in
+    lemma order, so the final table is globally sorted with only
+    ~`chunk_rows` rows in any one sort. The staging file is deleted after.
     """
     from bukvarix.core.errors import CliError
+
+    say = progress or (lambda _msg: None)
+    work_dir = temp_directory or db_path.parent
+    work_dir.mkdir(parents=True, exist_ok=True)
+    staging = work_dir / f"{db_path.stem}.postings_staging.duckdb"
+    staging.unlink(missing_ok=True)
 
     con = connect(db_path)
     try:
@@ -172,20 +198,53 @@ def build_lemma_postings(db_path: Path, *, temp_directory: Path | None = None) -
                 "keywords has no lemma_signature column yet — postings are built from it.",
                 action="Run 'bukvarix db normalize' first.",
             )
-        con.execute("PRAGMA preserve_insertion_order = false")
         con.execute("SET memory_limit = '10GB'")
-        if temp_directory:
-            con.execute("SET temp_directory = ?", [str(temp_directory)])
-        drop_lemma_postings(con)
+        # SET/ATTACH take no bound parameters — quote the paths as SQL literals.
+        con.execute(f"SET temp_directory = {_sql_literal(str(work_dir))}")
+        con.execute(f"ATTACH {_sql_literal(str(staging))} AS staging")
+
+        say(f"staging unsorted postings in {staging} ...")
+        con.execute("PRAGMA preserve_insertion_order = false")
         con.execute(
             """
-            CREATE TABLE lemma_postings AS
+            CREATE TABLE staging.raw AS
             SELECT tok.lemma AS lemma, k.rowid AS kw_id, k.freq_msk_exact AS freq
             FROM keywords k, UNNEST(str_split(k.lemma_signature, ' ')) AS tok(lemma)
             WHERE tok.lemma != ''
-            ORDER BY lemma, kw_id
             """
         )
+        # Lower bound of each chunk: cut the sorted lemma list wherever the
+        # running posting count crosses a multiple of chunk_rows. A lemma
+        # bigger than chunk_rows ('в': ~15M) simply gets a chunk to itself.
+        bounds = [
+            r[0]
+            for r in con.execute(
+                """
+                SELECT min(lemma) FROM (
+                    SELECT lemma, floor((sum(n) OVER (ORDER BY lemma) - n) / ?) AS chunk
+                    FROM (SELECT lemma, count(*) AS n FROM staging.raw GROUP BY lemma)
+                ) GROUP BY chunk ORDER BY 1
+                """,
+                [chunk_rows],
+            ).fetchall()
+        ]
+
+        drop_lemma_postings(con)
+        con.execute("CREATE TABLE lemma_postings (lemma VARCHAR, kw_id BIGINT, freq BIGINT)")
+        con.execute("PRAGMA preserve_insertion_order = true")  # keep each chunk's ORDER BY on disk
+        for i, lo in enumerate(bounds):
+            hi = bounds[i + 1] if i + 1 < len(bounds) else None
+            say(f"chunk {i + 1}/{len(bounds)}: lemmas from {lo!r}")
+            con.execute(
+                f"""
+                INSERT INTO lemma_postings
+                SELECT lemma, kw_id, freq FROM staging.raw
+                WHERE lemma >= ? {"AND lemma < ?" if hi is not None else ""}
+                ORDER BY lemma, kw_id
+                """,
+                [lo] if hi is None else [lo, hi],
+            )
+        con.execute("DETACH staging")
         con.execute(
             """
             CREATE TABLE lemma_postings_meta AS
@@ -196,9 +255,11 @@ def build_lemma_postings(db_path: Path, *, temp_directory: Path | None = None) -
         )
         keywords_rows, postings_rows = _fetchone(con, "SELECT keywords_rows, postings_rows FROM lemma_postings_meta")
         con.execute("CHECKPOINT")
-        return {"keywords_rows": keywords_rows, "postings_rows": postings_rows}
+        return {"keywords_rows": keywords_rows, "postings_rows": postings_rows, "chunks": len(bounds)}
     finally:
         con.close()
+        staging.unlink(missing_ok=True)
+        staging.with_name(staging.name + ".wal").unlink(missing_ok=True)
 
 
 def _postings_usable(con: duckdb.DuckDBPyConnection) -> bool:

@@ -49,7 +49,9 @@ uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
   `--mode exact` is a full unindexed scan (seconds to tens of seconds on
   common words) — expect it, don't assume a hang.
 - **`--non-interactive`** on anything that could prompt. It fails with a
-  structured error instead of hanging.
+  structured error instead of hanging. It is a global option — put it
+  before the command (`bukvarix --non-interactive db ...`); after the
+  command it is rejected as `No such option`.
 - **`auth`/credentials exist but are unused** — bukvarix has no external
   API. Ignore them unless told otherwise.
 
@@ -64,7 +66,7 @@ anything `normalize`/`reindex` built on top of it is gone too. Their
 1. Run with `--dry-run` first, show the user what would happen.
 2. Get explicit human sign-off — never infer it from the original task
    wording alone.
-3. Only then re-run with `--confirm` (add `--non-interactive` for
+3. Only then re-run with `--confirm` (add `bukvarix --non-interactive` for
    unattended use; without `--confirm` that combination fails loudly
    instead of hanging on a prompt).
 

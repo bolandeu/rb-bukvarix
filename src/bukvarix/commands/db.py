@@ -149,7 +149,9 @@ def reindex_cmd(
 def build_postings_cmd(
     ctx: typer.Context,
     temp_dir: Path | None = typer.Option(
-        None, "--temp-dir", help="Каталог для временных файлов сортировки (по умолчанию — рядом с базой)."
+        None,
+        "--temp-dir",
+        help="Каталог для промежуточной базы и временных файлов (по умолчанию — рядом с базой; можно другой диск).",
     ),
     confirm: bool = output.ConfirmOption,
     dry_run: bool = output.DryRunOption,
@@ -161,8 +163,8 @@ def build_postings_cmd(
 
     Нужен после normalize; пересобирать после каждого import-keywords/normalize
     (они сбрасывают постинги, и search до пересборки работает полным сканом).
-    Долго и растит файл базы на несколько ГБ; сортировка пишет временные
-    файлы — нужно свободное место на диске. Сделайте бэкап файла базы заранее
+    Долго и растит файл базы на несколько ГБ; промежуточные файлы (десятки ГБ)
+    пишутся в --temp-dir и удаляются в конце. Сделайте бэкап файла базы заранее
     (см. AGENTS.md).
     """
     db_path = services.resolve_db_path()
@@ -178,7 +180,7 @@ def build_postings_cmd(
         ctx, f"This (re)builds lemma_postings in {db_path} (slow, grows the file by several GB)", confirm
     )
     output.vecho(ctx, f"Building lemma_postings on {db_path} ...")
-    result = build_lemma_postings(db_path, temp_directory=temp_dir)
+    result = build_lemma_postings(db_path, temp_directory=temp_dir, progress=lambda m: output.vecho(ctx, m))
     output.emit_success(
         ctx,
         result,
