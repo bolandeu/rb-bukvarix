@@ -10,6 +10,19 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.3.0] - 2026-09-27
+
+### Changed
+
+- Release standard (template cli-generator v1.2.3): version from the git tag, changelog from changelog.d/ fragments, one scripts/release.py gate; every command's --help has an Example line and is pinned by snapshots. CHANGELOG moved from docs/changelog.md to the repo root.
+- The distribution is renamed bukvarix → rb-bukvarix (the bukvarix command and the bukvarix import package stay). Installed copies: `uv tool uninstall bukvarix` first, then `uv tool install "rb-bukvarix @ git+https://github.com/bolandeu/bukvarix@vX.Y.Z"`.
+- `auth status [--check] [--provider] --json` now returns the cross-tool credentials report (tool, version, checked_at, credentials[]); bukvarix stores no secrets, so the list is empty and the exit code is 0. The unused `auth login`/`auth logout` and the 'default' provider are removed, and so is the keyring dependency.
+
+### Fixed
+
+- The global `bukvarix` (`~/.local/bin`, used from any shell) was a non-editable snapshot of 0.1.0, not the editable install AGENTS.md described: after the 0.2.0 release it still ran the old 17.5s scan with no `engine` field. Reinstalled with `uv tool install --editable . --force`; AGENTS.md now says how to check it.
+
+
 ## [0.2.0] - 2026-09-23
 
 ### Changed
