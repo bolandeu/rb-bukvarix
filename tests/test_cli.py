@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,10 @@ import typer
 from typer.testing import CliRunner
 
 from bukvarix import output
+from bukvarix._distribution import DIST_NAME
 from bukvarix.cli import app
 from bukvarix.core import services
+from bukvarix.core.errors import InvalidArguments
 
 runner = CliRunner()
 
@@ -35,6 +38,15 @@ def no_real_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     real production database — unless it explicitly imports one.
     """
     monkeypatch.setenv("BUKVARIX_DB_PATH", str(tmp_path / "isolated.duckdb"))
+
+
+# --- names ----------------------------------------------------------------------
+
+
+def test_distribution_name_matches_pyproject() -> None:
+    """_distribution.DIST_NAME is how importlib.metadata finds this package; it must equal [project] name."""
+    pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())
+    assert pyproject["project"]["name"] == DIST_NAME
 
 
 # --- help-on-no-args -------------------------------------------------------
@@ -82,6 +94,8 @@ def test_config_get_set_round_trip(tmp_path: Path) -> None:
 
 
 def test_min_version_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Pin the installed version: an untagged checkout builds as 0.0.0, which the gate skips.
+    monkeypatch.setattr(services, "installed_version", lambda: "1.0.0")
     init(tmp_path)
     assert invoke("--project", str(tmp_path), "config", "set", "cli.min_version", "99.0.0").exit_code == 0
 
@@ -137,6 +151,27 @@ def _app_with(command):
     return test_app
 
 
+def test_report_with_a_problem_keeps_the_payload() -> None:
+    """output.emit_report: data plus ok=false + error, exit code from the problem (auth status uses it)."""
+
+    def report(ctx: typer.Context) -> None:
+        render = lambda d: output.human.echo(f"items: {d['items']}")  # noqa: E731
+        output.emit_report(ctx, {"items": [1]}, render, InvalidArguments("bad"))
+
+    result = runner.invoke(_app_with(report), ["--json", "cmd"])
+    payload = json.loads(result.stdout)
+    assert (result.exit_code, payload["ok"], payload["items"], payload["error"]["code"]) == (
+        2,
+        False,
+        [1],
+        "INVALID_ARGUMENTS",
+    )
+    result = runner.invoke(_app_with(report), ["cmd"])
+    assert result.exit_code == 2
+    assert "items: [1]" in result.stdout
+    assert "bad" in result.stderr
+
+
 def test_unexpected_exception_still_yields_json_envelope() -> None:
     def boom(ctx: typer.Context) -> None:
         raise RuntimeError("kaboom")
@@ -180,7 +215,7 @@ def test_skill_install_writes_to_project_dir(tmp_path: Path, monkeypatch: pytest
     assert code == 0
     installed = tmp_path / ".claude" / "skills" / "bukvarix" / "SKILL.md"
     assert installed.is_file()
-    assert "bukvarix" in installed.read_text()
+    assert "name: bukvarix" in installed.read_text()
     assert payload["path"] == str(installed)
 
 
@@ -303,3 +338,19 @@ def test_search_csv_export(imported_db: Path, tmp_path: Path, monkeypatch: pytes
     assert code == 0
     assert payload["saved_to"] == str(csv_path)
     assert csv_path.is_file()
+
+
+# --- auth status without credentials (standard §8: every CLI has it) ----------
+
+
+def test_auth_status_without_credentials_is_empty_and_healthy() -> None:
+    for args in (("auth", "status"), ("auth", "status", "--check")):
+        code, payload = invoke_json(*args)
+        assert code == 0
+        assert list(payload) == ["ok", "tool", "version", "checked_at", "credentials"]
+        assert payload["credentials"] == []
+        assert payload["checked_at"].endswith("Z")
+    code, payload = invoke_json("auth", "status", "--provider", "x")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+    assert invoke("auth", "login").exit_code == 2  # no such command without credentials
+    assert "stores no credentials" in invoke("auth", "status").stdout

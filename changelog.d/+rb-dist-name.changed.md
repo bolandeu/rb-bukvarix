@@ -1,0 +1,1 @@
+The distribution is renamed bukvarix → rb-bukvarix (the bukvarix command and the bukvarix import package stay). Installed copies: `uv tool uninstall bukvarix` first, then `uv tool install "rb-bukvarix @ git+https://github.com/bolandeu/bukvarix@vX.Y.Z"`.

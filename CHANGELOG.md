@@ -1,21 +1,14 @@
 # Changelog
 
-All notable changes to this project are documented here. The format is
-[Keep a Changelog](https://keepachangelog.com/), versions follow
-[SemVer](https://semver.org/). `scripts/release.py` moves the Unreleased
-section under a new version heading — add entries here as you go, don't
-write them at release time.
+All notable changes to this project are documented here. Versions follow
+[SemVer](https://semver.org/) (while at `0.x`, a minor bump may break).
 
-## [Unreleased]
+Don't edit this file between releases: each change adds a fragment to
+`changelog.d/` (`uv run towncrier create +<slug>.<type>.md -c "..."`, type
+one of added/changed/deprecated/removed/fixed/security), and
+`scripts/release.py` assembles them into a new section below the marker.
 
-### Fixed
-
-- The global `bukvarix` (`~/.local/bin`, used from any shell) was a
-  non-editable snapshot of 0.1.0, not the editable install AGENTS.md
-  described: after the 0.2.0 release it still ran the old 17.5s scan with
-  no `engine` field, while every check had gone through the project
-  `.venv`. Reinstalled with `uv tool install --editable . --force`; AGENTS.md
-  now says how to check it.
+<!-- towncrier release notes start -->
 
 ## [0.2.0] - 2026-09-23
 

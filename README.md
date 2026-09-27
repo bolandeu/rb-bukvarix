@@ -23,9 +23,13 @@ locally.
 uv run scripts/release.py patch   # or minor / major
 ```
 
-Bumps the version in `pyproject.toml`, dates the `## [Unreleased]` section
-of `docs/changelog.md`, commits, tags `v<version>` and pushes. Keep the changelog
-current as you work; the release script only stamps it.
+Runs the whole gate (`uv run scripts/release.py --check` without releasing),
+bumps the last `vX.Y.Z` tag (the version comes from the tag — there is no
+`version =` in `pyproject.toml`), assembles `CHANGELOG.md` from the
+`changelog.d/` fragments with towncrier, commits `Release vX.Y.Z` and tags it.
+It prints `git push --follow-tags`; pushing is a separate, confirmed step.
+Every user-visible change adds a fragment:
+`uv run towncrier create +<slug>.<type>.md -c "..."`.
 
 ## Install
 
@@ -62,10 +66,14 @@ or use the SSH form instead of HTTPS:
 uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
 ```
 
+Installed under the old distribution name `bukvarix` (before 0.3)? Remove it
+first, otherwise two tools claim the same `bukvarix` command:
+`uv tool uninstall bukvarix`.
+
 **Update** an installed copy to the latest commit:
 
 ```bash
-uv tool upgrade bukvarix
+uv tool upgrade rb-bukvarix
 ```
 
 After install, the command `bukvarix` is available globally on macOS,

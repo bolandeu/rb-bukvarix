@@ -12,12 +12,15 @@ from ..core.db import freq as db_freq
 @output.guard
 def freq(
     ctx: typer.Context,
-    query: str,
+    query: str = typer.Argument(..., help="Фраза, частотность которой нужна."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Точная частотность одной фразы (порядок слов не важен)."""
+    """Точная частотность одной фразы (порядок слов не важен).
+
+    Example: {cli} freq "растаможка авто" --json
+    """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
 

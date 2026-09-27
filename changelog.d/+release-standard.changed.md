@@ -1,0 +1,1 @@
+Release standard (template cli-generator v1.2.3): version from the git tag, changelog from changelog.d/ fragments, one scripts/release.py gate; every command's --help has an Example line and is pinned by snapshots. CHANGELOG moved from docs/changelog.md to the repo root.

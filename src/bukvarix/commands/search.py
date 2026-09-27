@@ -18,13 +18,13 @@ _MODES = {"contains", "words", "prefix", "exact", "query", "scan"}
 @output.guard
 def search(
     ctx: typer.Context,
-    query: str,
+    query: str = typer.Argument(..., help="Фраза; +слово — обязательное, -слово — исключить."),
     mode: str | None = typer.Option(
         None,
         "--mode",
         help="без флага — умный дефолт (self + похожие фразы, порядок/форма слов не важны, как в Wordstat) | contains | words | prefix | exact | query | scan",
     ),
-    limit: int = typer.Option(20, "--limit"),
+    limit: int = typer.Option(20, "--limit", help="Сколько похожих фраз вернуть."),
     csv_path: Path | None = typer.Option(None, "--csv", help="Сохранить результаты в CSV вместо печати"),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
@@ -42,6 +42,8 @@ def search(
       например "+в москве -недорого"
     --mode scan: то же, что дефолт, но полным сканом без индекса лемм
       (медленно; ищет по подстроке — для сверки с индексом)
+
+    Example: {cli} search "растаможка авто" --limit 10 --json
     """
     if mode is not None and mode not in _MODES:
         raise InvalidArguments(f"Invalid --mode: {mode!r}. Use {'|'.join(sorted(_MODES))}.")

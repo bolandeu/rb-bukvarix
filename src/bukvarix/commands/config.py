@@ -19,7 +19,10 @@ def list_config(
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Показать все значения конфигурации."""
+    """Показать все значения конфигурации.
+
+    Example: {cli} config list --json
+    """
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     config = services.load_config(root)
@@ -31,11 +34,14 @@ def list_config(
 @output.guard
 def get_config(
     ctx: typer.Context,
-    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например provider.name"),
+    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например cli.min_version (см. `config list`)."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Получить одно значение конфигурации."""
+    """Получить одно значение конфигурации.
+
+    Example: {cli} config get cli.min_version
+    """
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     value: object = services.load_config(root).model_dump()
@@ -52,12 +58,15 @@ def get_config(
 @output.guard
 def set_config(
     ctx: typer.Context,
-    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например provider.name"),
+    key: str = typer.Argument(..., help="Ключ конфигурации через точку, например cli.min_version (см. `config list`)."),
     value: str = typer.Argument(..., help="Новое значение (сохраняется как строка)."),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Установить одно (несекретное) значение конфигурации."""
+    """Установить одно (несекретное) значение конфигурации.
+
+    Example: {cli} config set cli.min_version 0.2.0
+    """
     start = Path(ctx.obj.get("project") or Path.cwd())
     root = services.require_project_root(start)
     data = services.load_config(root).model_dump()

@@ -14,7 +14,10 @@ def stats(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Статистика базы данных: путь, размер, число строк. Работает, даже если базы ещё нет."""
+    """Статистика базы данных: путь, размер, число строк. Работает, даже если базы ещё нет.
+
+    Example: {cli} stats --json
+    """
     db_path = services.resolve_db_path()
     result = db_stats(db_path)
     output.emit_success(ctx, result, render_human=output.human.render_stats)

@@ -42,9 +42,12 @@ cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
 `bukvarix` установлена глобально как editable-пакет из этого каталога, и
 незавершённая правка в `main` тут же ломает инструмент для всех, кто им
 пользуется прямо сейчас. Проверить, что установка действительно editable:
-в `~/.local/share/uv/tools/bukvarix/uv-receipt.toml` должно быть
+в `~/.local/share/uv/tools/rb-bukvarix/uv-receipt.toml` должно быть
 `editable = "..."`, а не `directory = "..."` (иначе глобальная команда — застывшая
 копия старого кода); переустановка — `uv tool install --editable . --force`.
+Дистрибутив называется `rb-bukvarix` (стандарт §10), команда и импорт —
+по-прежнему `bukvarix`; установка под старым именем снимается один раз:
+`uv tool uninstall bukvarix`, иначе два инструмента делят одну команду.
 Проверять изменения — глобальной `bukvarix` из другого каталога, а не
 только через `.venv` проекта. В `main` вливать только после шага «проверка
 реальными запросами».
@@ -67,7 +70,7 @@ cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
 |---|---|
 | `docs/build.md` | как собрать базу + история решений: что пробовали, что сработало, что нет и почему |
 | `docs/backlog.md` | запланированные задачи с инструкцией для исполнителя |
-| `docs/changelog.md` | изменения по версиям (`## [Unreleased]` штампует `scripts/release.py`) |
+| `CHANGELOG.md` | изменения по версиям — собирается из `changelog.d/` при релизе, руками не править |
 | `docs/examples.md` | развёрнутые примеры вывода команд |
 
 Правило: любой эксперимент с движком поиска или сборкой базы — удачный
@@ -75,8 +78,8 @@ cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
 реальными цифрами (время, размер файла, число совпадений), причиной
 решения и тем, что именно не сработало. Откаченный эксперимент важнее
 удачного: без записи его повторят (см. историю FTS/BM25 — проблема 5).
-Готовая задача из `docs/backlog.md` переносится в `docs/changelog.md`
-и `docs/build.md`, а не удаляется молча.
+Готовая задача из `docs/backlog.md` переносится в `docs/build.md` и во
+фрагмент `changelog.d/` (см. «Разработка и релиз»), а не удаляется молча.
 
 ## Контракт вывода
 
@@ -94,7 +97,7 @@ cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
    пользователя на confirm; DATABASE_NOT_READY — БД ещё не собрана, см.
    'bukvarix db import-keywords')
 2  неверные аргументы
-3  требуется auth (в bukvarix сегодня ничем не используется)
+3  credentials неисправны (в bukvarix не бывает: секретов нет)
 4  проект не инициализирован (только для init/status/config — search/
    freq/stats/db в проекте не нуждаются)
 6  CLI старее, чем требует .bukvarix/config.toml проекта
@@ -192,4 +195,38 @@ db reindex --confirm`; после команды — ошибка `No such optio
 - Нет операторов `"кавычки"`, `!точная форма`, `(a|b)` группы — сознательно не реализованы, работа с одной фразой.
 - `search` быстрый (0.1-0.4 с) только при собранных постингах (`engine: postings`); без них — полный скан, 16-35 с. См. `docs/build.md`, проблема 6.
 - Данные статичны (дамп от Bukvarix), не обновляются в реальном времени.
-- `auth`/credentials существуют в CLI ради единообразия с остальными инструментами автора, но ничем в bukvarix не используются — внешних API нет.
+- Секретов нет: `bukvarix auth status --json` (общий контракт всех инструментов) отдаёт пустой `credentials` и exit 0; `auth login/logout` нет.
+
+## Разработка и релиз
+
+Общий стандарт — `~/Projects/tools/docs/standard-release.md`, шаблон —
+`gh:bolandeu/cli-generator` (обновление: `uvx copier update --trust --defaults`).
+
+```bash
+uv sync                             # пишет uv.lock — коммитится
+uv run scripts/release.py --check   # весь гейт — перед каждым коммитом
+```
+
+- **Гейт перед каждым коммитом** — `uv run scripts/release.py --check`:
+  `uv lock --check`, ruff check + format, ty, pytest (порог покрытия,
+  контракт и снапшоты `--help`, форма `auth status`), фрагмент changelog,
+  сборка wheel с установкой во временный venv (`bukvarix --version` =
+  версии wheel). Тесты не трогают реальную базу — autouse-фикстура в
+  `tests/test_cli.py` подставляет пустой `BUKVARIX_DB_PATH`.
+- **Версия = git-тег** `vX.Y.Z` (uv-dynamic-versioning), `version =` в
+  `pyproject.toml` нет и не добавлять. Без тега в истории сборка — `0.0.0`.
+- **Changelog = фрагменты.** `CHANGELOG.md` не править; каждое видимое
+  изменение — `uv run towncrier create +<slug>.<type>.md -c "..."`
+  (added/changed/deprecated/removed/fixed/security, в slug без точек).
+- **Релиз** — только с чистого актуального `main`:
+  `uv run scripts/release.py patch|minor|major` (гейт, towncrier, коммит
+  `Release vX.Y.Z`, тег); push — с подтверждением пользователя. На `0.x`:
+  исправление/совместимая фича — patch, ломающее изменение — minor.
+- **Справка = докстринги.** Поменял поведение команды — поправь её
+  докстринг в том же коммите: одна строка, абзац, строка
+  `Example: {cli} <команда> …`; у каждого параметра `help=`. Затем
+  `uv run pytest --snapshot-update` и прочитать diff в
+  `tests/snapshots/help/`. Следят хуки Claude Code (`.claude/settings.json`),
+  git pre-commit (`.githooks/`, `scripts/install_hooks.sh` один раз на клон)
+  и `tests/test_help.py`.
+- `src/bukvarix/data/SKILL.md` — только конвенции, без списка команд.

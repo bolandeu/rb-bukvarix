@@ -20,7 +20,10 @@ def set_path(
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
 ) -> None:
-    """Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH)."""
+    """Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH).
+
+    Example: {cli} db set-path /Volumes/Data/bukvarix/bukvarix.duckdb
+    """
     resolved = path.expanduser().resolve()
     services.set_user_db_path(resolved)
     output.emit_success(
@@ -49,6 +52,8 @@ def import_keywords_cmd(
     keywords (и всё, что построили над ней normalize/reindex) пропадает
     после запуска. Сделайте бэкап файла базы заранее (см. AGENTS.md) —
     автоматического бэкапа нет.
+
+    Example: {cli} db import-keywords msk.tsv --dry-run
     """
     db_path = services.resolve_db_path()
     if output.is_dry_run(ctx):
@@ -89,6 +94,8 @@ def normalize_cmd(
 
     Меняет действующую базу на месте (ALTER TABLE + UPDATE), на полном
     датасете может занять несколько минут. Сделайте бэкап файла базы заранее.
+
+    Example: {cli} db normalize --dry-run
     """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
@@ -128,6 +135,8 @@ def reindex_cmd(
     Идемпотентно (CREATE INDEX IF NOT EXISTS), но может занять больше
     10 минут и примерно удваивает размер файла базы — сделайте бэкап
     заранее, если место на диске или время ограничены.
+
+    Example: {cli} db reindex --dry-run
     """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
@@ -166,6 +175,8 @@ def build_postings_cmd(
     Долго и растит файл базы на несколько ГБ; промежуточные файлы (десятки ГБ)
     пишутся в --temp-dir и удаляются в конце. Сделайте бэкап файла базы заранее
     (см. AGENTS.md).
+
+    Example: {cli} db build-postings --temp-dir /Volumes/Data/bukvarix/tmp --dry-run
     """
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)

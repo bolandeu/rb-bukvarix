@@ -1,0 +1,1 @@
+`auth status [--check] [--provider] --json` now returns the cross-tool credentials report (tool, version, checked_at, credentials[]); bukvarix stores no secrets, so the list is empty and the exit code is 0. The unused `auth login`/`auth logout` and the 'default' provider are removed, and so is the keyring dependency.

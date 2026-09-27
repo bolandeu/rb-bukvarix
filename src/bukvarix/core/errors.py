@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-# Derived from this package's own name so error messages can name the real
-# command without this module needing template substitution.
-_CLI = __name__.split(".")[0]
+from .._distribution import DIST_NAME
+from .version import cli_name
+
+# The real command (may differ from the package name) for `action` hints;
+# `uv tool upgrade` takes the distribution name, which is the package's.
+_CLI = cli_name()
+_DIST = DIST_NAME
 
 
 class CliError(Exception):
@@ -50,6 +54,37 @@ class AuthRequired(CliError):
         )
 
 
+class CredentialsUnhealthy(CliError):
+    def __init__(self, problems: dict[str, str]) -> None:
+        listed = ", ".join(f"{provider} ({status})" for provider, status in problems.items())
+        super().__init__(
+            "CREDENTIALS_UNHEALTHY",
+            f"{len(problems)} credential(s) need attention: {listed}.",
+            action=f"See each entry's `message`; store a credential with '{_CLI} auth login --provider <name>'.",
+            exit_code=3,
+        )
+
+
+class DependencyTooOld(CliError):
+    """Another CLI this one calls is missing or older than required (core/deps.py)."""
+
+    def __init__(self, name: str, installed: str | None, required: str, *, install_url: str | None = None) -> None:
+        found = "is not installed" if installed is None else f"is {installed}"
+        pinned = f'uv tool install --reinstall "git+{install_url}@v{required}"' if install_url else None
+        if installed is not None:
+            action = f"Run 'uv tool upgrade {name}'" + (f" (or '{pinned}')" if pinned else "") + ", then retry."
+        elif pinned:
+            action = f"Run '{pinned}', then retry."
+        else:
+            action = f"Install {name} >= {required} (see its README for the install command), then retry."
+        super().__init__(
+            "DEPENDENCY_TOO_OLD",
+            f"'{name}' {found}; {_CLI} needs {name} >= {required}.",
+            action=action,
+            exit_code=1,
+        )
+
+
 class InvalidArguments(CliError):
     def __init__(self, message: str) -> None:
         super().__init__("INVALID_ARGUMENTS", message, exit_code=2)
@@ -70,7 +105,7 @@ class CliTooOld(CliError):
         super().__init__(
             "CLI_TOO_OLD",
             f"This project requires {_CLI} >= {required}, but {installed} is installed.",
-            action=f"Run 'uv tool upgrade {_CLI}' (or lower cli.min_version in the project's config.toml).",
+            action=f"Run 'uv tool upgrade {_DIST}' (or lower cli.min_version in the project's config.toml).",
             exit_code=6,
         )
 

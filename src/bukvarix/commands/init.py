@@ -20,9 +20,11 @@ def init(
     """Инициализировать проект: создаёт .bukvarix/config.toml в целевой директории.
 
     Не требуется для search/freq/stats/db — они работают с единой базой
-    на весь компьютер (см. 'bukvarix db --help'). Это только для
+    на весь компьютер (см. '{cli} db --help'). Это только для
     конфигурации на директорию (пока только cli.min_version), оставлено
     для единообразия со стандартным набором команд этого CLI.
+
+    Example: {cli} init --name demo
     """
     target = Path(ctx.obj.get("project") or Path.cwd()).resolve()
 

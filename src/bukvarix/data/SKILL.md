@@ -19,7 +19,7 @@ prints this document.
 uv tool install "git+https://github.com/bolandeu/bukvarix.git"
 ```
 
-Same command on macOS, Linux and Windows; `uv tool upgrade bukvarix`
+Same command on macOS, Linux and Windows; `uv tool upgrade rb-bukvarix`
 updates it. Do not run from source unless asked to develop the CLI.
 
 The repository may be private. On an auth error (`Authentication failed`,
@@ -55,8 +55,8 @@ uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
   structured error instead of hanging. It is a global option — put it
   before the command (`bukvarix --non-interactive db ...`); after the
   command it is rejected as `No such option`.
-- **`auth`/credentials exist but are unused** — bukvarix has no external
-  API. Ignore them unless told otherwise.
+- **No credentials** — bukvarix has no external API; `auth status --json`
+  reports an empty `credentials` list and exits 0.
 
 ## Destructive commands — always get explicit sign-off first
 
@@ -86,6 +86,6 @@ Read exit code → `error.code` → `error.action` (the concrete next command).
     1  general (UNEXPECTED = a bug: re-run with --verbose, report; ABORTED = user said no;
        DATABASE_NOT_READY = no db built yet → db import-keywords)
     2  invalid arguments
-    3  auth required (unused by any bukvarix command today)
+    3  credentials unhealthy (never for bukvarix: it stores none)
     4  project not initialized (only for init/status/config — search/freq/stats/db don't need this)
-    6  CLI too old for this project → uv tool upgrade bukvarix
+    6  CLI too old for this project → uv tool upgrade rb-bukvarix
