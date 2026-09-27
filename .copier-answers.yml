@@ -1,6 +1,6 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v1.0.0
-_src_path: /Users/bolandau/Projects/ai/cli-generator
+_src_path: gh:bolandeu/cli-generator
 author_name: net.paradox
 description: Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix
 include_auth: true
