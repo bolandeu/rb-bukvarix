@@ -10,6 +10,13 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.3.1] - 2026-09-28
+
+### Changed
+
+- Template v1.2.9: `doctor` reports declared external dependencies (none for now), the wheel carries `pyproject.toml` for the external-dependency registry, and an install still registered under the old distribution name `bukvarix` reports its real version.
+
+
 ## [0.3.0] - 2026-09-27
 
 ### Changed
