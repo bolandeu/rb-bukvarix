@@ -43,6 +43,10 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bukvarix"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# The installed CLI reads [[tool.rb.external]] from here (core/deps.py).
+"pyproject.toml" = "bukvarix/_pyproject.toml"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -92,10 +96,25 @@ directory = "security"
 name = "Security"
 showcontent = true
 
+# External (non-Python) dependencies — every CLI this tool runs (require_cli,
+# shutil.which, subprocess with a literal program, npx). The gate checks this
+# list against the code both ways; doctor and require_cli read it at runtime;
+# the tools/ root builds docs/external-deps.md from it (standard §12).
+# [[tool.rb.external]]
+# name = "ffmpeg"
+# required = true               # false: the tool works without it (doctor stays healthy)
+# min_version = "6.0"           # optional
+# check = "ffmpeg -version"     # prints the version; default "<name> --version"
+# why = "transcodes the downloaded videos"
+
 [tool.cli-generator]
 # Where scripts/check_command_docstrings.py (git pre-commit + Claude Code hooks)
 # looks for commands: a glob or a list of globs, relative to the repo root.
 commands = ["src/bukvarix/commands/*.py"]
+# scripts/release.py: extras to install before ruff/ty/pytest in the gate, and
+# the release commit message (e.g. for Conventional Commits hooks).
+# gate_extras = ["browser"]
+# release_commit = "chore(release): v{version}"
 
 [tool.pytest.ini_options]
 addopts = "--cov --cov-report=term-missing:skip-covered"
@@ -112,6 +131,12 @@ source = ["src"]
 # Raise it, never lower it.
 fail_under = 90
 show_missing = true
+
+[tool.ty.terminal]
+# Only errors fail the gate; recent ty (>= 0.0.84) otherwise exits 1 on warnings too.
+# Legacy code that can't be fixed yet: downgrade specific rules instead of
+# ignoring them, e.g. [tool.ty.rules] possibly-unbound-attribute = "warn".
+error-on-warning = false
 
 [tool.ruff]
 line-length = 120

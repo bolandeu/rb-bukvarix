@@ -1,0 +1,1 @@
+Template v1.2.9: `doctor` reports declared external dependencies (none for now), the wheel carries `pyproject.toml` for the external-dependency registry, and an install still registered under the old distribution name `bukvarix` reports its real version.

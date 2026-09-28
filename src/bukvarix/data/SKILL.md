@@ -16,8 +16,11 @@ prints this document.
 ## Install (if `bukvarix --version` fails)
 
 ```bash
-uv tool install "git+https://github.com/bolandeu/bukvarix.git"
+uv tool install "rb-bukvarix @ git+https://github.com/bolandeu/bukvarix.git@vX.Y.Z"
 ```
+
+Replace `vX.Y.Z` with the latest release tag (install from a tag, never a
+branch: standard §9).
 
 Same command on macOS, Linux and Windows; `uv tool upgrade rb-bukvarix`
 updates it. Do not run from source unless asked to develop the CLI.
@@ -29,7 +32,7 @@ ask the user to run `gh auth login`. With SSH keys configured, this works
 without any of that:
 
 ```bash
-uv tool install "git+ssh://git@github.com/bolandeu/bukvarix.git"
+uv tool install "rb-bukvarix @ git+ssh://git@github.com/bolandeu/bukvarix.git@vX.Y.Z"
 ```
 
 ## Conventions

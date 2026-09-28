@@ -68,18 +68,22 @@ class CredentialsUnhealthy(CliError):
 class DependencyTooOld(CliError):
     """Another CLI this one calls is missing or older than required (core/deps.py)."""
 
-    def __init__(self, name: str, installed: str | None, required: str, *, install_url: str | None = None) -> None:
+    def __init__(
+        self, name: str, installed: str | None, required: str | None, *, install_url: str | None = None
+    ) -> None:
         found = "is not installed" if installed is None else f"is {installed}"
-        pinned = f'uv tool install --reinstall "git+{install_url}@v{required}"' if install_url else None
+        need = f"{name} >= {required}" if required else name
+        tag = f"@v{required}" if required else ""
+        pinned = f'uv tool install --reinstall "git+{install_url}{tag}"' if install_url else None
         if installed is not None:
             action = f"Run 'uv tool upgrade {name}'" + (f" (or '{pinned}')" if pinned else "") + ", then retry."
         elif pinned:
             action = f"Run '{pinned}', then retry."
         else:
-            action = f"Install {name} >= {required} (see its README for the install command), then retry."
+            action = f"Install {need} (see its README for the install command), then retry."
         super().__init__(
             "DEPENDENCY_TOO_OLD",
-            f"'{name}' {found}; {_CLI} needs {name} >= {required}.",
+            f"'{name}' {found}; {_CLI} needs {need}.",
             action=action,
             exit_code=1,
         )

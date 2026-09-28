@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 
 from .. import output
-from ..core import services
+from ..core import deps, services
 from ..core.version import DEV_VERSION, installed_version
 
 _PACKAGE_NAME = __name__.split(".")[0]
@@ -36,7 +36,10 @@ def doctor(
     quiet: bool = output.QuietOption,
     verbose: bool = output.VerboseOption,
 ) -> None:
-    """Проверить готовность окружения и базы данных.
+    """Проверить готовность окружения, базы данных и внешних зависимостей.
+
+    Внешние программы — по одной проверке `external:<имя>` на каждую из
+    записей tool.rb.external в pyproject.toml (сейчас их нет).
 
     Всегда завершается с exit 0 — сам отчёт и есть результат; `healthy`
     показывает, прошли ли все проверки.
@@ -46,6 +49,7 @@ def doctor(
     checks: list[dict] = [{"name": "python", "ok": True}]
     checks.append({"name": "cli_version", "ok": True, "detail": installed_version() or DEV_VERSION})
     checks.extend(_db_checks())
+    checks.extend(deps.doctor_checks())  # [[tool.rb.external]] in pyproject.toml
 
     all_ok = all(check["ok"] for check in checks)
     output.emit_success(
