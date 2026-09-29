@@ -230,3 +230,13 @@ uv run scripts/release.py --check   # весь гейт — перед кажд�
   git pre-commit (`.githooks/`, `scripts/install_hooks.sh` один раз на клон)
   и `tests/test_help.py`.
 - `src/bukvarix/data/SKILL.md` — только конвенции, без списка команд.
+
+## Каждое заметное изменение выходит релизом
+
+Серверы, другие инструменты и Mac ставят только по тегам, не из `main`:
+влитое без релиза изменение для них не существует. Изменение с фрагментом
+changelog закончено только после релиза: влить в `main` →
+`uv run scripts/release.py patch|minor|major` → попросить пользователя
+сделать push с `--follow-tags` → назвать новый тег в отчёте. Служебные коммиты
+(без фрагмента) ждут следующего релиза. Не оставлять фрагмент на `main` без
+релиза, не назвав причину (`~/Projects/tools/docs/standard-release.md` §3).
