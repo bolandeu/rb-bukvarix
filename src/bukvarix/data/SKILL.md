@@ -46,7 +46,9 @@ uv tool install "rb-bukvarix @ git+ssh://git@github.com/bolandeu/bukvarix.git@vX
 - **The database is a separate resource from the CLI.** `search`/`freq`
   fail with `DATABASE_NOT_READY` (exit 1) if it hasn't been built yet —
   `stats --json` always works and reports `keywords_rows: 0` in that case.
-  `db set-path PATH` points the CLI at an existing `.duckdb` file;
+  Default location: `user_data_dir("bukvarix")/bukvarix.duckdb` (macOS
+  `~/Library/Application Support/bukvarix/`, Linux `~/.local/share/bukvarix/`).
+  `db set-path PATH` points the CLI at an existing `.duckdb` file elsewhere;
   `BUKVARIX_DB_PATH` overrides it for one process/session.
 - **Speeds.** `freq` is an indexed lookup (ms). Default `search` uses a
   lemma index when it's built (`"engine": "postings"`, 0.1-0.4s); if the

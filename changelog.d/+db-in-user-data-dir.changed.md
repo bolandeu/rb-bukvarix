@@ -1,0 +1,1 @@
+- База по умолчанию документирована в `user_data_dir("bukvarix")` (macOS `~/Library/Application Support/bukvarix/`, Linux `~/.local/share/bukvarix/`), а не в репозитории.

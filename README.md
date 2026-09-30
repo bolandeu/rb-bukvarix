@@ -84,15 +84,18 @@ itself, run `copier update` in this repo.
 
 ## The database
 
-`bukvarix` queries a single DuckDB file (~41GB on the real Moscow dump, not
-committed to this repo). Path resolution, in order:
+`bukvarix` queries a single DuckDB file (~41GB on the real Moscow dump).
+It lives in the user data dir, never in the repo:
+`platformdirs.user_data_dir("bukvarix")/bukvarix.duckdb` — on macOS
+`~/Library/Application Support/bukvarix/bukvarix.duckdb`, on Linux
+`~/.local/share/bukvarix/bukvarix.duckdb`. Path resolution, in order:
 
 1. `BUKVARIX_DB_PATH` env var — explicit override for one process/session.
 2. `bukvarix db set-path PATH` — persisted via the OS user config dir
    (survives across shells/processes without needing to be sourced from a
    shell profile, which a non-interactive process wouldn't see anyway).
-3. A platformdirs default user-data location, for a fresh machine with
-   nothing configured yet.
+3. The user-data default above — the normal case; leave 1 and 2 unset
+   unless the database really lives elsewhere.
 
 `search`/`freq` fail with a structured `DATABASE_NOT_READY` error if
 nothing has been imported yet; `stats --json` always succeeds and reports

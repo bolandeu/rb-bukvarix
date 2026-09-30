@@ -53,6 +53,15 @@ def test_check_cli_compat(monkeypatch: pytest.MonkeyPatch) -> None:
 # --- database path resolution ----------------------------------------------
 
 
+def test_default_db_path_is_in_user_data_dir_not_repo() -> None:
+    from platformdirs import user_data_dir
+
+    path = services.default_db_path()
+    assert path == Path(user_data_dir("bukvarix")) / "bukvarix.duckdb"
+    repo = Path(__file__).resolve().parent.parent
+    assert not path.is_relative_to(repo)
+
+
 def test_resolve_db_path_prefers_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(services, "user_config_path", lambda: tmp_path / "user-config-unused.toml")
     monkeypatch.setattr(services, "default_db_path", lambda: tmp_path / "default.duckdb")

@@ -9,7 +9,8 @@
 ```bash
 uv tool install --editable .                # команда bukvarix глобально, из этого каталога
 
-bukvarix db set-path /путь/к/bukvarix.duckdb  # или BUKVARIX_DB_PATH на время сессии
+# база по умолчанию: user_data_dir("bukvarix")/bukvarix.duckdb
+# (macOS ~/Library/Application Support/bukvarix/); другой путь — db set-path или BUKVARIX_DB_PATH
 
 bukvarix db import-keywords keywords213.tsv --confirm  # ~4 мин — импорт + физический дедуп перестановок слов
 bukvarix db normalize --confirm                        # ~7 мин — content_signature (стоп-слова) + lemma_signature (леммы)
@@ -33,7 +34,7 @@ bukvarix db build-postings --confirm                   # ~4.5 мин — инв�
 причины — в AGENTS.md):
 ```bash
 test -d /Volumes/Data/bukvarix || echo "диск не смонтирован"
-cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_pre_<шаг>
+cp ~/Library/Application\ Support/bukvarix/bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_pre_<шаг>
 ```
 Удалять бэкап только после того, как результат шага проверен реальными
 запросами (`bukvarix stats`, `bukvarix freq "тест"`, `bukvarix search

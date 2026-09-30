@@ -127,7 +127,7 @@ $ bukvarix search "авто растаможка" --mode words --limit 3 --json
 
 ```
 $ bukvarix stats --json
-{"ok": true, "db_path": "/Users/bolandau/Projects/tools/bukvarix/bukvarix.duckdb", "db_size_bytes": 43963396096, "tables": ["keywords", "word_lemmas"], "keywords_rows": 113696532}
+{"ok": true, "db_path": "/Users/me/Library/Application Support/bukvarix/bukvarix.duckdb", "db_size_bytes": 43963396096, "tables": ["keywords", "word_lemmas"], "keywords_rows": 113696532}
 ```
 
 ## doctor
@@ -137,7 +137,7 @@ $ bukvarix doctor --json
 {"ok": true, "healthy": true, "checks": [
   {"name": "python", "ok": true},
   {"name": "cli_version", "ok": true, "detail": "0.1.0"},
-  {"name": "db_path", "ok": true, "detail": "/Users/bolandau/Projects/tools/bukvarix/bukvarix.duckdb"},
+  {"name": "db_path", "ok": true, "detail": "/Users/me/Library/Application Support/bukvarix/bukvarix.duckdb"},
   {"name": "db_ready", "ok": true, "detail": null}
 ]}
 ```
@@ -149,7 +149,7 @@ $ bukvarix doctor --json
 
 ```
 $ bukvarix db import-keywords keywords213.tsv --dry-run --json
-{"ok": true, "would_import": "keywords213.tsv", "db_path": "/Users/bolandau/Projects/tools/bukvarix/bukvarix.duckdb"}
+{"ok": true, "would_import": "keywords213.tsv", "db_path": "/Users/me/Library/Application Support/bukvarix/bukvarix.duckdb"}
 
 $ bukvarix --non-interactive db import-keywords keywords213.tsv --json
 {"ok": false, "error": {"code": "INVALID_ARGUMENTS", "message": "This replaces the entire keywords table in ... — make sure you have a backup requires --confirm when --non-interactive is set."}}

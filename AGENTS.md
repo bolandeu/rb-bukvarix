@@ -22,8 +22,12 @@ copy 41 ГБ файла на каждый прогон слишком дорог
   (`cp db.py db.py.bak_<что_меняем>`) перед правкой;
 - любым вызовом `bukvarix db import-keywords|normalize|reindex` (эти
   команды и так требуют `--confirm`, но подтверждение — не замена
-  бэкапу) — `cp bukvarix.duckdb bukvarix.duckdb.backup_<шаг>` перед
-  запуском.
+  бэкапу) — копия базы на внешний диск (см. ниже) перед запуском.
+
+**Где база:** `platformdirs.user_data_dir("bukvarix")/bukvarix.duckdb`
+(macOS `~/Library/Application Support/bukvarix/`, Linux
+`~/.local/share/bukvarix/`), никогда не в репозитории. Точный путь —
+`bukvarix stats --json` → `db_path`.
 
 **Куда класть бэкап базы:** только на внешний диск,
 `/Volumes/Data/bukvarix/` (на системном диске места под вторую копию
@@ -31,7 +35,7 @@ copy 41 ГБ файла на каждый прогон слишком дорог
 
 ```bash
 test -d /Volumes/Data/bukvarix || echo "диск не смонтирован"
-cp bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
+cp ~/Library/Application\ Support/bukvarix/bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
 ```
 
 Если `/Volumes/Data` не виден — **остановиться и попросить пользователя
@@ -177,6 +181,7 @@ db reindex --confirm`; после команды — ошибка `No such optio
 запуском — `--dry-run` для превью, затем ручной бэкап (см. выше), и
 только потом `--confirm`.
 
+База по умолчанию — `user_data_dir("bukvarix")/bukvarix.duckdb`.
 `db set-path PATH` — сохраняет путь к `.duckdb` файлу для всех остальных
 команд (переопределяется переменной окружения `BUKVARIX_DB_PATH` на
 время одного процесса/сессии).
