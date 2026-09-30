@@ -10,6 +10,13 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.3.2] - 2026-09-30
+
+### Changed
+
+- - База по умолчанию документирована в `user_data_dir("bukvarix")` (macOS `~/Library/Application Support/bukvarix/`, Linux `~/.local/share/bukvarix/`), а не в репозитории.
+
+
 ## [0.3.1] - 2026-09-28
 
 ### Changed
