@@ -51,6 +51,30 @@ def test_freq_batch_matches_single_freq_calls(normalized_db: Path) -> None:
         assert batch[q] == db.freq(normalized_db, q)
 
 
+def test_import_keywords_stores_data_date(db_path: Path, small_tsv: Path) -> None:
+    import datetime as dt
+
+    db.import_keywords(db_path, small_tsv, data_date=dt.date(2026, 8, 1))
+    assert db.data_date(db_path) == "2026-08-01"
+
+
+def test_import_keywords_data_date_defaults_to_tsv_mtime(db_path: Path, small_tsv: Path) -> None:
+    import datetime as dt
+    import os
+
+    stamp = dt.datetime(2026, 7, 15, 12, 0).timestamp()
+    os.utime(small_tsv, (stamp, stamp))
+    db.import_keywords(db_path, small_tsv)
+    assert db.data_date(db_path) == "2026-07-15"
+
+
+def test_data_date_is_none_for_a_database_imported_before_it_was_stored(imported_db: Path) -> None:
+    con = db.connect(imported_db)
+    con.execute("DROP TABLE dataset_meta")
+    con.close()
+    assert db.data_date(imported_db) is None
+
+
 def test_search_smart_requires_all_words_as_lemmas(normalized_db: Path) -> None:
     result = db.search_smart(normalized_db, "авто", 20)
     assert result["total_count"] == 6  # every remaining row mentions "авто" somewhere

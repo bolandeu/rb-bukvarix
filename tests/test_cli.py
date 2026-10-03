@@ -261,6 +261,88 @@ def test_search_and_freq_fail_cleanly_without_a_database() -> None:
     assert payload["error"]["code"] == "DATABASE_NOT_READY"
 
 
+# --- freq: batch, provenance (source/region/data_date) ------------------------
+
+
+def _freq_db(db_path: Path, small_tsv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(db_path))
+    code, _ = invoke_json("db", "import-keywords", str(small_tsv), "--data-date", "2026-08-01", "--confirm")
+    assert code == 0
+
+
+def test_freq_batch_envelope_keeps_input_order_and_reports_misses(
+    small_tsv: Path, db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _freq_db(db_path, small_tsv, monkeypatch)
+    code, payload = invoke_json("freq", "авто купить", "нет такой фразы", "продажа авто")
+    assert code == 0
+    assert payload["ok"] is True
+    assert (payload["count"], payload["region"], payload["source"], payload["data_date"]) == (
+        3,
+        "213",
+        "bukvarix",
+        "2026-08-01",
+    )
+    assert payload["results"] == [
+        {"query": "авто купить", "phrase": "купить авто", "freq_msk_exact": 300, "matched_via": "exact"},
+        {"query": "нет такой фразы", "phrase": None, "freq_msk_exact": 0, "matched_via": None},
+        {"query": "продажа авто", "phrase": "продажа авто", "freq_msk_exact": 500, "matched_via": "exact"},
+    ]
+
+
+def test_freq_single_phrase_uses_the_same_envelope(
+    small_tsv: Path, db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _freq_db(db_path, small_tsv, monkeypatch)
+    code, payload = invoke_json("freq", "купить авто")
+    assert code == 0
+    assert payload["count"] == 1
+    assert payload["results"] == [
+        {"query": "купить авто", "phrase": "купить авто", "freq_msk_exact": 300, "matched_via": "exact"}
+    ]
+
+
+def test_freq_reads_phrases_from_file_and_stdin(
+    small_tsv: Path, db_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _freq_db(db_path, small_tsv, monkeypatch)
+    phrases = tmp_path / "phrases.txt"
+    phrases.write_text("купить авто\n\n  продажа авто  \n", encoding="utf-8")
+
+    code, payload = invoke_json("freq", "--input", str(phrases))
+    assert code == 0
+    assert [r["query"] for r in payload["results"]] == ["купить авто", "продажа авто"]
+
+    code, payload = invoke_json("freq", "растаможка авто", "--input", "-", input="купить авто\n")
+    assert code == 0
+    assert [r["query"] for r in payload["results"]] == ["растаможка авто", "купить авто"]
+
+
+def test_freq_without_phrases_is_invalid_arguments(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
+    code, payload = invoke_json("freq")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+    code, payload = invoke_json("freq", "--input", "-", input="\n  \n")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+
+
+def test_freq_data_date_is_null_for_an_old_database(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from bukvarix.core import db as bukvarix_db
+
+    con = bukvarix_db.connect(imported_db)
+    con.execute("DROP TABLE dataset_meta")
+    con.close()
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
+    code, payload = invoke_json("freq", "купить авто")
+    assert code == 0
+    assert payload["data_date"] is None
+
+
+def test_db_import_rejects_a_malformed_data_date(small_tsv: Path) -> None:
+    code, payload = invoke_json("db", "import-keywords", str(small_tsv), "--data-date", "01.08.2026", "--confirm")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+
+
 def test_search_invalid_mode_is_rejected() -> None:
     code, payload = invoke_json("search", "авто", "--mode", "bogus")
     assert code == 2
@@ -289,7 +371,7 @@ def test_db_import_then_search_and_freq_work(small_tsv: Path, db_path: Path, mon
 
     code, payload = invoke_json("freq", "авто купить")
     assert code == 0
-    assert payload["result"]["phrase"] == "купить авто"
+    assert payload["results"][0]["phrase"] == "купить авто"
 
     code, payload = invoke_json("search", "авто", "--limit", "3")
     assert code == 0
@@ -338,7 +420,7 @@ def test_db_normalize_and_reindex_dry_run_and_gating(imported_db: Path, monkeypa
     # normalize actually ran: freq now resolves via the lemma tier too.
     code, payload = invoke_json("freq", "растаможки авто")
     assert code == 0
-    assert payload["result"]["matched_via"] == "lemma"
+    assert payload["results"][0]["matched_via"] == "lemma"
 
 
 # --- human-mode rendering smoke tests ---------------------------------------
