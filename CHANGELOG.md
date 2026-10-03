@@ -10,6 +10,13 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.4.1] - 2026-10-03
+
+### Added
+
+- `db set-data-date YYYY-MM-DD` — записать дату данных в уже импортированную базу без переимпорта (для баз до 0.4.0, у которых `freq` отдаёт `data_date: null`).
+
+
 ## [0.4.0] - 2026-10-03
 
 ### Changed
