@@ -10,6 +10,13 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.4.0] - 2026-10-03
+
+### Changed
+
+- **Ломающее:** `bukvarix freq --json` теперь всегда отдаёт конверт `{count, region, source, data_date, results: [{query, phrase, freq_msk_exact, matched_via}]}` вместо `{query, result}` — и для одной фразы тоже; ненайденная фраза — `freq_msk_exact: 0`, `matched_via: null`. Новое: несколько фраз аргументами и `--input <файл|->`; `db import-keywords --data-date YYYY-MM-DD` сохраняет дату данных в базе (по умолчанию — дата изменения TSV), для базы, импортированной раньше, `data_date: null`. Python API (`core.db.freq`, `freq_batch`) не изменился.
+
+
 ## [0.3.2] - 2026-09-30
 
 ### Changed
