@@ -1,0 +1,48 @@
+# Контракт потребителя: windmill → bukvarix (consumer-driven, T170).
+# Источник правды — репо windmill (tests/contracts/bukvarix/windmill.yaml); поставщик держит копию
+# в tests/contracts/windmill/bukvarix.yaml и прогоняет в гейте релиза (формат T18: run; describe у bukvarix нет).
+# Проверяется ТОЛЬКО то, на что опирается Windmill (f/semantics/collect_queries → run_tool). Лишние поля разрешены.
+contract: 1
+consumer: windmill
+provider: bukvarix
+provider_range: ">=0.4.0,<1.0"
+contact: "агент windmill через dev"
+
+static:
+  exit_codes: [0, 1, 2]
+  env:
+    - BUKVARIX_DB_PATH              # база на томе воркеров /data/bukvarix (только чтение)
+
+run:
+  - name: freq_input_file
+    # фразы из файла, по строке; ответ — в порядке ввода, нет в базе — частота 0 (не ошибка)
+    argv: [freq, --input, "{fixture_phrases_file}", --json]
+    exit: 0
+    stdout_json_schema:
+      type: object
+      required: [ok, region, source, data_date, results]
+      properties:
+        ok: {const: true}
+        region: {const: "213"}
+        source: {const: bukvarix}
+        data_date: {type: [string, "null"]}
+        results:
+          type: array
+          items:
+            type: object
+            required: [query, phrase, freq_msk_exact, matched_via]
+            properties:
+              query: {type: string}
+              phrase: {type: [string, "null"]}
+              freq_msk_exact: {type: integer, minimum: 0}
+              matched_via: {enum: [exact, stopwords, lemma, null]}
+
+  - name: no_phrases_is_exit_2
+    argv: [freq, --json]
+    exit: 2
+    stdout_json_schema:
+      type: object
+      required: [ok, error]
+      properties: {ok: {const: false}, error: {type: object, required: [code, message]}}
+
+view: []

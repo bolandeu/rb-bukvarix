@@ -12,6 +12,13 @@ step's name and output, then `release: code failed` (exit 1) or, when only
 the vulnerability audit failed, `release: audit failed` (exit 3):
 
     uv lock --check · ruff check · ruff format --check · ty check · pytest ·
+    contracts (tests/test_contracts.py: the consumers' cases from
+    tests/contracts/<consumer>/*.yaml, run apart from pytest — a failing case
+    stops the release and is named with its consumer) ·
+    existing tests (never fails: lists every test that existed at the last tag
+    and has since changed or gone — a changed or removed test function, changed
+    module-level code of a test file, a changed snapshot or data file; each goes
+    into the release report with its reason, `tools/dev` reject it without one) ·
     external dependencies (every program src/ runs is declared in
     [[tool.rb.external]] and vice versa) ·
     changelog fragment (at least one in changelog.d/ when anything user-visible
@@ -29,7 +36,8 @@ the vulnerability audit failed, `release: audit failed` (exit 3):
 The version lives only in git tags (`vX.Y.Z`, read at build time by
 uv-dynamic-versioning); a release bumps the last `v*` tag by `part`. Releasing
 refuses off `main`, on a dirty tree, when `main` is behind its upstream, or
-with no fragments. It never pushes: it prints the push command for you.
+with no fragments. It never pushes, nor does any agent here: the release is
+reported to the root agent `tools`, and dev pushes it after the user's yes.
 
 Settings in pyproject.toml `[tool.cli-generator]` (so the script itself stays
 verbatim): `gate_extras = ["x"]` runs ruff/ty/pytest with those extras
@@ -77,13 +85,15 @@ def release_commit_message(version: str) -> str:
 
 
 FRAGMENTS = ROOT / _towncrier().get("directory", "changelog.d")
+CONTRACT_TESTS = "tests/test_contracts.py"
+VERSION_ENV = "RB_PROVIDER_VERSION"  # tests/test_contracts.py: the version being built, for `provider:` ranges
 PARTS = ("patch", "minor", "major")
 COMMANDS = (
     ("uv lock --check", ("uv", "lock", "--check")),
     ("ruff check", ("uv", "run", "ruff", "check", ".")),
     ("ruff format --check", ("uv", "run", "ruff", "format", "--check", ".")),
     ("ty check", ("uv", "run", "ty", "check")),
-    ("pytest", ("uv", "run", "pytest")),
+    ("pytest", ("uv", "run", "pytest", f"--ignore={CONTRACT_TESTS}")),  # contracts: their own step
 )
 AUDIT_STEP = "vulnerability audit"
 EXIT_CODE_FAILED = 1  # any code/packaging step: lock, lint, types, tests, fragment, wheel
@@ -93,7 +103,17 @@ TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 # Changes that never need a changelog fragment (standard §3): they don't
 # change what users of the package get. Keep this list identical in
 # scripts/release.py and scripts/check_changelog_fragment.py (a test checks).
-NO_FRAGMENT_NEEDED = ("uv.lock", ".github/", "scripts/", "tests/", ".githooks/", ".claude/", "AGENTS.md", "CLAUDE.md")
+NO_FRAGMENT_NEEDED = (
+    "uv.lock",
+    ".github/",
+    "scripts/",
+    "tests/",
+    "docs/",
+    ".githooks/",
+    ".claude/",
+    "AGENTS.md",
+    "CLAUDE.md",
+)
 
 
 def needs_fragment(path: str) -> bool:
@@ -218,14 +238,24 @@ def check_external_deps() -> str:
         for name, files in used.items()
         if name not in declared
     ]
-    problems += [f"`{name}` is declared but nothing in src/ runs it" for name in sorted(declared - used.keys())]
+    # detect = false: run in a way this scan can't see (an injected runner, an
+    # absolute path) — declared on trust, but still with a `why`.
+    hidden = {entry.get("name") for entry in entries if entry.get("detect", True) is False}
+    unseen = sorted(declared - used.keys() - hidden)
+    problems += [
+        f"`{name}` is declared but nothing in src/ runs it (set detect = false if it's run in a way the gate "
+        "can't see, e.g. an injected runner or an absolute path)"
+        for name in unseen
+    ]
     if problems:
         raise StepFailed(
             "pyproject.toml [[tool.rb.external]] doesn't match the code (standard §12):\n  - "
             + "\n  - ".join(problems)
             + '\nDeclare: [[tool.rb.external]] name = "x", required = true, min_version = "1.0", check = "x --version", why = "..."'
         )
-    return f"{len(declared)} declared, all used" if declared else "none used, none declared"
+    if not declared:
+        return "none used, none declared"
+    return f"{len(declared)} declared, all used" + (f" ({len(hidden)} with detect = false)" if hidden else "")
 
 
 def _tooling_only_pyproject(path: str, tag: str) -> bool:
@@ -260,6 +290,99 @@ def check_fragment() -> str:
         '  uv run towncrier create +<slug>.<type>.md -c "What changed, for a human reader."\n'
         "  (type: added/changed/deprecated/removed/fixed/security)"
     )
+
+
+def _top_level(source: str) -> tuple[dict[str, str], list[str]]:
+    """A test module's top-level functions and classes by name, and its other statements (imports aside)."""
+    defs: dict[str, str] = {}
+    rest: list[str] = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            defs[node.name] = ast.dump(node)  # no line numbers: a moved test is not a changed one
+        elif not isinstance(node, ast.Import | ast.ImportFrom):
+            rest.append(ast.dump(node))
+    return defs, rest
+
+
+def changed_existing_tests(path: str, old: str, new: str | None) -> list[str]:
+    """What of `path` as it was (`old`) is changed or gone in `new` (None: the file is deleted). New tests don't count."""
+    if new is None:
+        return [f"{path} removed"]
+    if old == new:
+        return []
+    if not path.endswith(".py"):  # a snapshot, test data: the file as a whole
+        return [f"{path} changed"]
+    try:
+        old_defs, old_rest = _top_level(old)
+        new_defs, new_rest = _top_level(new)
+    except SyntaxError:
+        return [f"{path} changed"]
+    found = [f"{path}: module-level code changed"] if any(stmt not in new_rest for stmt in old_rest) else []
+    for name in sorted(old_defs):
+        if name not in new_defs:
+            found.append(f"{path}::{name} removed")
+        elif new_defs[name] != old_defs[name]:
+            found.append(f"{path}::{name} changed")
+    return found
+
+
+def check_existing_tests() -> str:
+    """Tests the last release had that are changed or gone now: a test is not edited to fit the code.
+
+    Never fails — a requirement can change. The list goes into the release
+    report, each entry with its reason (tools/dev docs/testing.md, "TDD").
+    """
+    versions = tags()
+    if not versions:
+        return "no release tag yet"
+    last = "v{}.{}.{}".format(*versions[-1])
+    found: list[str] = []
+    for path in _changed_since(last):
+        if not path.startswith("tests/"):
+            continue
+        old = subprocess.run(["git", "show", f"{last}:{path}"], cwd=ROOT, capture_output=True, check=False)
+        if old.returncode:  # added since the tag
+            continue
+        current = ROOT / path
+        new = current.read_text(errors="replace") if current.is_file() else None
+        found += changed_existing_tests(path, old.stdout.decode(errors="replace"), new)
+    if not found:
+        return f"none changed since {last}"
+    listed = "\n  ".join(found)
+    return f"{len(found)} changed since {last} — put each in the release report with its reason:\n  {listed}"
+
+
+_CONTRACT_RESULT = re.compile(r"::test_contract\[([^\]]+)\] (PASSED|FAILED|SKIPPED|ERROR)")
+
+
+def contract_summary(output: str) -> str:
+    """'N cases from K consumers' (+ failed / skipped) from a `pytest -vv` run of tests/test_contracts.py."""
+    results = {case: status for case, status in _CONTRACT_RESULT.findall(output)}
+    if not results:
+        return "0 cases"
+    consumers = {case.split(":", 1)[0] for case in results}
+    cases, sources = len(results), len(consumers)
+    summary = f"{cases} case{'s' * (cases != 1)} from {sources} consumer{'s' * (sources != 1)}"
+    failed = sum(status in ("FAILED", "ERROR") for status in results.values())
+    skipped = sum(status == "SKIPPED" for status in results.values())
+    notes = [f"{failed} failed"] * bool(failed) + [f"{skipped} skipped (provider version)"] * bool(skipped)
+    return f"{summary}: {', '.join(notes)}" if notes else summary
+
+
+def check_contracts(version: str | None = None) -> str:
+    """The consumers' contract cases, as their own gate step: any failure stops the release."""
+    if not (ROOT / CONTRACT_TESTS).is_file():
+        return f"none ({CONTRACT_TESTS} doesn't exist)"
+    argv = ["uv", "run", *(arg for extra in gate_extras() for arg in ("--extra", extra)), "pytest", CONTRACT_TESTS]
+    argv += ["-vv", "--no-cov", "-p", "no:cacheprovider", "-rfE", "--tb=no"]  # -vv: the reason is not cut off
+    env = {**os.environ, **({VERSION_ENV: version} if version else {})}
+    result = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, env=env, check=False)
+    output = (result.stdout + result.stderr).strip()
+    summary = contract_summary(output)
+    if result.returncode not in (0, 5):  # 5: no case collected
+        failures = [line for line in output.splitlines() if line.startswith(("FAILED", "ERROR"))]
+        raise StepFailed(f"{summary}\n" + "\n".join(failures or [output]))
+    return summary
 
 
 def check_vulnerabilities() -> str:
@@ -364,6 +487,8 @@ def check_installed_wheel(version: str | None) -> str:
 def run_gate(version: str | None) -> None:
     steps: list[tuple[str, Callable[[], str]]] = [
         *((name, lambda argv=argv: run_command(argv)) for name, argv in COMMANDS),
+        ("contracts", lambda: check_contracts(version)),
+        ("existing tests", check_existing_tests),
         ("external dependencies", check_external_deps),
         ("changelog fragment", check_fragment),
         ("build + install wheel", lambda: check_installed_wheel(version)),
@@ -462,7 +587,12 @@ def main() -> None:
     run("git", "add", "--all", changelog_file(), *([str(FRAGMENTS)] if FRAGMENTS.exists() else []))
     run("git", "commit", "-m", release_commit_message(version))
     run("git", "tag", "-a", tag, "-m", tag)
-    print(f"Released {tag} locally. Push it (needs your confirmation): git push --follow-tags")
+    print(
+        f"Released {tag} locally. Report it to tools: agent_say.sh tools "
+        "(repo, branch, tags, what is inside, release.py --check). dev pushes after the user's yes.\n"
+        "TDD in the report: the failing (red) run of the new tests, committed before the code; "
+        "every entry of 'existing tests' above with its reason."
+    )
     print(f"Then install it anywhere with: {install_command(tag)}")
 
 
