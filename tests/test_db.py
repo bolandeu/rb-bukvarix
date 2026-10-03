@@ -75,6 +75,29 @@ def test_data_date_is_none_for_a_database_imported_before_it_was_stored(imported
     assert db.data_date(imported_db) is None
 
 
+def test_set_data_date_creates_dataset_meta_on_an_old_database(imported_db: Path) -> None:
+    import datetime as dt
+
+    con = db.connect(imported_db)
+    con.execute("DROP TABLE dataset_meta")
+    con.close()
+    db.set_data_date(imported_db, dt.date(2026, 8, 1))
+    assert db.data_date(imported_db) == "2026-08-01"
+
+
+def test_set_data_date_overwrites_and_keeps_import_provenance(db_path: Path, small_tsv: Path) -> None:
+    import datetime as dt
+
+    db.import_keywords(db_path, small_tsv, data_date=dt.date(2026, 8, 1))
+    db.set_data_date(db_path, dt.date(2026, 9, 1))
+    db.set_data_date(db_path, dt.date(2026, 9, 2))
+    assert db.data_date(db_path) == "2026-09-02"
+    con = db.connect(db_path, read_only=True)
+    rows = con.execute("SELECT source_file FROM dataset_meta").fetchall()
+    con.close()
+    assert rows == [(str(small_tsv),)]
+
+
 def test_search_smart_requires_all_words_as_lemmas(normalized_db: Path) -> None:
     result = db.search_smart(normalized_db, "авто", 20)
     assert result["total_count"] == 6  # every remaining row mentions "авто" somewhere

@@ -345,6 +345,53 @@ def test_db_import_rejects_a_malformed_data_date(small_tsv: Path) -> None:
     assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
 
 
+def test_db_set_data_date_on_an_old_database_then_freq_reports_it(
+    imported_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bukvarix.core import db as bukvarix_db
+
+    con = bukvarix_db.connect(imported_db)
+    con.execute("DROP TABLE dataset_meta")
+    con.close()
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
+
+    code, payload = invoke_json("db", "set-data-date", "2026-08-01", "--confirm")
+    assert code == 0
+    assert (payload["data_date"], payload["previous_data_date"]) == ("2026-08-01", None)
+    _, payload = invoke_json("freq", "купить авто")
+    assert payload["data_date"] == "2026-08-01"
+
+    code, payload = invoke_json("db", "set-data-date", "2026-09-01", "--confirm")
+    assert code == 0
+    assert (payload["data_date"], payload["previous_data_date"]) == ("2026-09-01", "2026-08-01")
+    _, payload = invoke_json("freq", "купить авто")
+    assert payload["data_date"] == "2026-09-01"
+
+
+def test_db_set_data_date_rejects_a_malformed_date(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
+    for bad in ("01.08.2026", "2026-13-01", "вчера"):
+        code, payload = invoke_json("db", "set-data-date", bad, "--confirm")
+        assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+
+
+def test_db_set_data_date_gating_and_dry_run(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(imported_db))
+    code, payload = invoke_json("--non-interactive", "db", "set-data-date", "2026-09-01")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")  # needs --confirm
+
+    code, payload = invoke_json("db", "set-data-date", "2026-09-01", "--dry-run")
+    assert code == 0
+    assert payload["db_path"] == str(imported_db)
+    _, payload = invoke_json("freq", "купить авто")
+    assert payload["data_date"] != "2026-09-01"  # dry run wrote nothing
+
+
+def test_db_set_data_date_requires_a_database() -> None:
+    code, payload = invoke_json("db", "set-data-date", "2026-08-01", "--confirm")
+    assert (code, payload["error"]["code"]) == (1, "DATABASE_NOT_READY")
+
+
 def test_search_invalid_mode_is_rejected() -> None:
     code, payload = invoke_json("search", "авто", "--mode", "bogus")
     assert code == 2
