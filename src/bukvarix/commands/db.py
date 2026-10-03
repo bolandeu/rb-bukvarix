@@ -7,7 +7,7 @@ import typer
 
 from .. import output
 from ..core import services
-from ..core.db import build_indexes, build_lemma_postings, import_keywords
+from ..core.db import build_indexes, build_lemma_postings, import_keywords, set_data_date
 from ..core.db import normalize as db_normalize
 from ..core.errors import InvalidArguments
 
@@ -86,6 +86,51 @@ def import_keywords_cmd(
         render_human=lambda d: output.human.echo(
             f"Done: {d['raw_rows']:,} raw rows -> {d['deduped_rows']:,} after "
             f"removing {d['removed_permutations']:,} word-order duplicates."
+        ),
+    )
+
+
+@app.command("set-data-date")
+@output.guard
+def set_data_date_cmd(
+    ctx: typer.Context,
+    date: str = typer.Argument(..., help="Дата выгрузки данных Bukvarix, YYYY-MM-DD."),
+    confirm: bool = output.ConfirmOption,
+    dry_run: bool = output.DryRunOption,
+    json_output: bool = output.JsonOption,
+    quiet: bool = output.QuietOption,
+    verbose: bool = output.VerboseOption,
+) -> None:
+    """Записать дату данных в уже импортированную базу, без переимпорта.
+
+    Для баз, импортированных до 0.4.0 (у них 'freq' отдаёт data_date: null),
+    или чтобы исправить дату. Создаёт таблицу dataset_meta, если её нет;
+    повторный вызов перезаписывает дату. Остальные таблицы не трогает.
+
+    Example: {cli} db set-data-date 2026-08-01 --confirm
+    """
+    try:
+        parsed_date = dt.date.fromisoformat(date)
+    except ValueError:
+        raise InvalidArguments(f"DATE must be YYYY-MM-DD, got {date!r}.") from None
+    db_path = services.resolve_db_path()
+    services.require_db_ready(db_path)
+    if output.is_dry_run(ctx):
+        output.emit_success(
+            ctx,
+            {"db_path": str(db_path), "would_set_data_date": parsed_date.isoformat()},
+            render_human=lambda d: output.human.echo(
+                f"Dry run: would set data_date to {d['would_set_data_date']} in {d['db_path']}."
+            ),
+        )
+        return
+    output.require_confirmation(ctx, f"This sets data_date to {parsed_date} in {db_path}", confirm)
+    previous = set_data_date(db_path, parsed_date)
+    output.emit_success(
+        ctx,
+        {"db_path": str(db_path), "data_date": parsed_date.isoformat(), "previous_data_date": previous},
+        render_human=lambda d: output.human.echo(
+            f"Done: data_date {d['previous_data_date'] or 'not set'} -> {d['data_date']}."
         ),
     )
 

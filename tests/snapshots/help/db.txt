@@ -10,6 +10,7 @@
 │ set-path         Сохранить путь к файлу базы данных (переопределяется переменной окружения       │
 │                  BUKVARIX_DB_PATH).                                                              │
 │ import-keywords  Импортировать региональный TSV Bukvarix, заменив текущее содержимое базы.       │
+│ set-data-date    Записать дату данных в уже импортированную базу, без переимпорта.               │
 │ normalize        Добавить ключи сопоставления content_signature (стоп-слова) и lemma_signature   │
 │                  (pymorphy3).                                                                    │
 │ reindex          Построить индексы на signature/content_signature/lemma_signature — отдельно от  │

@@ -125,6 +125,29 @@ def data_date(db_path: Path) -> str | None:
         con.close()
 
 
+def set_data_date(db_path: Path, data_date: dt.date) -> str | None:
+    """Record the data date on an already imported database, without reimporting.
+
+    Databases imported before 0.4.0 have no dataset_meta: the table is created
+    here (with no source_file/imported_at — the import's details are unknown).
+    Otherwise only data_date changes. Returns the previous date.
+    """
+    con = connect(db_path)
+    try:
+        previous = _data_date(con)
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS dataset_meta (data_date DATE, source_file VARCHAR, imported_at TIMESTAMP)"
+        )
+        if _fetchone(con, "SELECT count(*) FROM dataset_meta")[0]:
+            con.execute("UPDATE dataset_meta SET data_date = ?", [data_date])
+        else:
+            con.execute("INSERT INTO dataset_meta (data_date) VALUES (?)", [data_date])
+        con.execute("CHECKPOINT")
+        return previous
+    finally:
+        con.close()
+
+
 def build_indexes(db_path: Path) -> None:
     """Build indexes for all three lookup tiers, separately from import/normalize.
 

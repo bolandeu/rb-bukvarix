@@ -87,7 +87,7 @@ $ printf 'растаможка космического корабля\n' | bukv
 
 `data_date: null` — база импортирована до 0.4.0, дату выгрузки тогда не
 сохраняли; после `db import-keywords` (с `--data-date` или по дате файла)
-она появится.
+она появится. Без переимпорта — `db set-data-date` (см. ниже, раздел db).
 
 Три уровня `matched_via`:
 
@@ -167,6 +167,17 @@ $ bukvarix --non-interactive db import-keywords keywords213.tsv --json
 
 $ bukvarix db import-keywords keywords213.tsv --confirm --json
 {"ok": true, "raw_rows": 126784040, "deduped_rows": 113696532, "removed_permutations": 13087508}
+```
+
+`db set-data-date` — дописать дату данных в уже импортированную базу (без
+переимпорта; повторный вызов перезаписывает):
+
+```
+$ bukvarix db set-data-date 2026-08-01 --confirm --json
+{"ok": true, "db_path": "...", "data_date": "2026-08-01", "previous_data_date": null}
+
+$ bukvarix db set-data-date 01.08.2026 --confirm --json   # exit 2
+{"ok": false, "error": {"code": "INVALID_ARGUMENTS", "message": "DATE must be YYYY-MM-DD, got '01.08.2026'."}}
 ```
 
 `db set-path` — сохраняет путь к БД в пользовательском конфиге, без

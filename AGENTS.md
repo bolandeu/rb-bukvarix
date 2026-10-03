@@ -169,7 +169,7 @@ Wordstat: «авто в растаможка» = «растаможка авто
 
 - Одна фраза — тот же конверт, `results` из одного элемента (до 0.4.0 был `{"query", "result"}`).
 - Фразы нет в базе — `freq_msk_exact: 0`, `matched_via: null`, не ошибка.
-- `data_date` — дата выгрузки Bukvarix: сохраняется в таблицу `dataset_meta` при `db import-keywords` (`--data-date YYYY-MM-DD`, иначе дата изменения TSV); `null` — база импортирована до 0.4.0.
+- `data_date` — дата выгрузки Bukvarix: сохраняется в таблицу `dataset_meta` при `db import-keywords` (`--data-date YYYY-MM-DD`, иначе дата изменения TSV); `null` — база импортирована до 0.4.0; дату можно дописать без переимпорта: `bukvarix db set-data-date YYYY-MM-DD --confirm`.
 
 ### `bukvarix stats [--json]`
 
@@ -179,13 +179,15 @@ Wordstat: «авто в растаможка» = «растаможка авто
 ### `bukvarix db ...` — обслуживание базы (не для обычного использования агентом)
 
 `db import-keywords <path.tsv> [--data-date YYYY-MM-DD]`, `db normalize`, `db reindex`,
-`db build-postings [--temp-dir DIR]` — разовые шаги подготовки данных, не
-часть обычного querying-флоу (см. `docs/build.md`). `build-postings`
+`db build-postings [--temp-dir DIR]`, `db set-data-date YYYY-MM-DD` — разовые
+шаги подготовки данных, не часть обычного querying-флоу (см. `docs/build.md`). `build-postings`
 строит индекс лемм для быстрого `search` (~4.5 мин, +1.5 ГБ к файлу;
 промежуточные файлы ~5-10 ГБ — в `--temp-dir`, на этой машине
 `/Volumes/Data/bukvarix/tmp`); его надо повторять после
 `import-keywords`/`normalize`, они сбрасывают постинги.
-Все четыре **деструктивны** и требуют либо интерактивного подтверждения,
+`set-data-date` пишет дату данных в `dataset_meta` (создаёт таблицу, если
+её нет; повторный вызов перезаписывает; остальное не трогает, бэкап не
+нужен). Все пять пишут в базу и требуют либо интерактивного подтверждения,
 либо явного `--confirm` (под `--non-interactive` без `--confirm` —
 отказ с `INVALID_ARGUMENTS`, а не тихое выполнение). `--non-interactive` —
 глобальный флаг, ставится **перед** командой: `bukvarix --non-interactive
