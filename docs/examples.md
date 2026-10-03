@@ -68,15 +68,26 @@ $ bukvarix search "растаможка авто" --csv out.csv --json
 ## freq — быстрая частотность без списка похожих
 
 То же, что `self` у `search`, но через индекс, без скана —
-единицы-десятки мс:
+единицы-десятки мс на всю пачку. Одна фраза или много — ответ один и тот
+же: `results` по элементу на каждую входную фразу, в порядке ввода, плюс
+происхождение цифры (`source`, `region`, `data_date`):
 
 ```
-$ bukvarix freq "растаможка авто" --json
-{"ok": true, "query": "растаможка авто", "result": {"phrase": "растаможка авто", "freq_msk_exact": 466, "matched_via": "exact"}, "elapsed_seconds": 0.062}
+$ bukvarix freq "доставка грузов из китая" "доставка из китая" --json
+{"ok": true, "count": 2, "region": "213", "source": "bukvarix", "data_date": null,
+ "results": [{"query": "доставка грузов из китая", "phrase": "доставка грузов из китая", "freq_msk_exact": 284, "matched_via": "exact"},
+             {"query": "доставка из китая", "phrase": "доставка из китая", "freq_msk_exact": 585, "matched_via": "exact"}],
+ "elapsed_seconds": 0.131}
 
-$ bukvarix freq "растаможка космического корабля" --json
-{"ok": true, "query": "растаможка космического корабля", "result": null, "elapsed_seconds": 0.092}
+$ printf 'растаможка космического корабля\n' | bukvarix freq --input - --json
+{"ok": true, "count": 1, "region": "213", "source": "bukvarix", "data_date": null,
+ "results": [{"query": "растаможка космического корабля", "phrase": null, "freq_msk_exact": 0, "matched_via": null}],
+ "elapsed_seconds": 0.092}
 ```
+
+`data_date: null` — база импортирована до 0.4.0, дату выгрузки тогда не
+сохраняли; после `db import-keywords` (с `--data-date` или по дате файла)
+она появится.
 
 Три уровня `matched_via`:
 

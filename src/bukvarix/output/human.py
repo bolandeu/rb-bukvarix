@@ -45,14 +45,15 @@ def render_search(data: dict) -> None:
 
 
 def render_freq(data: dict) -> None:
-    result = data["result"]
-    elapsed = f" [dim]({data['elapsed_seconds']:.3f}s)[/dim]"
-    if result is None:
-        console.print(f"[yellow]not found:[/yellow] {data['query']}{elapsed}")
-        return
-    via = result.get("matched_via")
-    suffix = f" [dim]({via})[/dim]" if via and via != "exact" else ""
-    console.print(f"{result['phrase']}: {result['freq_msk_exact']}{suffix}{elapsed}")
+    for r in data["results"]:
+        if r["phrase"] is None:
+            console.print(f"[yellow]not found:[/yellow] {r['query']}")
+            continue
+        via = r["matched_via"]
+        suffix = f" [dim]({via})[/dim]" if via != "exact" else ""
+        console.print(f"{r['phrase']}: {r['freq_msk_exact']}{suffix}")
+    date = data["data_date"] or "дата данных неизвестна"
+    console.print(f"[dim]({data['source']}, регион {data['region']}, {date}; {data['elapsed_seconds']:.3f}s)[/dim]")
 
 
 def render_stats(data: dict) -> None:

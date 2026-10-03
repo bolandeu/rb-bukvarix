@@ -150,14 +150,26 @@ Wordstat: «авто в растаможка» = «растаможка авто
 `--csv path.csv` — сохраняет `results` в CSV вместо печати; с `--json`
 на stdout идёт подтверждение `{"ok": true, "saved_to": ..., "rows": N}`.
 
-### `bukvarix freq QUERY [--json]`
+### `bukvarix freq PHRASE... [--input FILE|-] [--json]`
 
-Только частотность одной канонической фразы, без списка похожих —
-то же самое, что `self` из `search`, но быстрее (индексный лукап,
-единицы-десятки мс, без скана). Три уровня фолбэка (точное совпадение →
-без стоп-слов → через леммы), `matched_via` показывает, какой сработал.
-`result: null` — фразы нет вообще, не ошибка. Как и `search`, требует
+Только частотность канонических фраз, без списка похожих — то же самое,
+что `self` из `search`, но быстрее (индексный лукап, единицы-десятки мс на
+всю пачку, одно соединение). Фразы — аргументами и/или `--input` (по фразе
+на строку, `-` = stdin; пустые строки пропускаются); ни одной — exit 2.
+Три уровня фолбэка (точное совпадение → без стоп-слов → через леммы),
+`matched_via` показывает, какой сработал. Как и `search`, требует
 собранной БД (`DATABASE_NOT_READY`, если её ещё нет).
+
+```json
+{"ok": true, "count": 2, "region": "213", "source": "bukvarix", "data_date": "2026-08-01",
+ "results": [{"query": "доставка из китая", "phrase": "доставка из китая", "freq_msk_exact": 585, "matched_via": "exact"},
+             {"query": "нет такой фразы", "phrase": null, "freq_msk_exact": 0, "matched_via": null}],
+ "elapsed_seconds": 0.13}
+```
+
+- Одна фраза — тот же конверт, `results` из одного элемента (до 0.4.0 был `{"query", "result"}`).
+- Фразы нет в базе — `freq_msk_exact: 0`, `matched_via: null`, не ошибка.
+- `data_date` — дата выгрузки Bukvarix: сохраняется в таблицу `dataset_meta` при `db import-keywords` (`--data-date YYYY-MM-DD`, иначе дата изменения TSV); `null` — база импортирована до 0.4.0.
 
 ### `bukvarix stats [--json]`
 
@@ -166,7 +178,7 @@ Wordstat: «авто в растаможка» = «растаможка авто
 
 ### `bukvarix db ...` — обслуживание базы (не для обычного использования агентом)
 
-`db import-keywords <path.tsv>`, `db normalize`, `db reindex`,
+`db import-keywords <path.tsv> [--data-date YYYY-MM-DD]`, `db normalize`, `db reindex`,
 `db build-postings [--temp-dir DIR]` — разовые шаги подготовки данных, не
 часть обычного querying-флоу (см. `docs/build.md`). `build-postings`
 строит индекс лемм для быстрого `search` (~4.5 мин, +1.5 ГБ к файлу;

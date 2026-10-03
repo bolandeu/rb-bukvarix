@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 from pathlib import Path
 
 import duckdb
+
+# Provenance of every frequency: the whole database is one Bukvarix regional
+# dump, Moscow only (the source file is keywords213.tsv, 213 = Yandex region id).
+SOURCE = "bukvarix"
+REGION = "213"
 
 
 def connect(db_path: Path, *, read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -22,7 +28,7 @@ def _fetchone(con: duckdb.DuckDBPyConnection, sql: str, params: list | None = No
     return result
 
 
-def import_keywords(db_path: Path, tsv_path: Path) -> dict:
+def import_keywords(db_path: Path, tsv_path: Path, *, data_date: dt.date | None = None) -> dict:
     """Import a Bukvarix regional keywords TSV (phrase\\tfreq, no header).
 
     Bukvarix TSVs are not quoted/escaped, so quote='' is required or a
@@ -36,7 +42,13 @@ def import_keywords(db_path: Path, tsv_path: Path) -> dict:
     resolve after import. That's intentional: the caller decided those
     variants are noise, same as Wordstat already collapsing them in its own
     output.
+
+    `data_date` is when Bukvarix exported the data; the dump itself doesn't
+    say, so it defaults to the TSV's mtime (the download date, unless the
+    file was copied without preserving it) and is kept in `dataset_meta`.
     """
+    if data_date is None:
+        data_date = dt.date.fromtimestamp(tsv_path.stat().st_mtime)
     con = connect(db_path)
     try:
         con.execute("PRAGMA preserve_insertion_order = false")
@@ -79,12 +91,36 @@ def import_keywords(db_path: Path, tsv_path: Path) -> dict:
         # keywords was recreated, so rowids changed: postings pointing at
         # the old table would silently return wrong phrases.
         drop_lemma_postings(con)
+        con.execute(
+            """
+            CREATE OR REPLACE TABLE dataset_meta AS
+            SELECT ?::DATE AS data_date, ? AS source_file, now()::TIMESTAMP AS imported_at
+            """,
+            [data_date, str(tsv_path)],
+        )
         con.execute("CHECKPOINT")
         return {
             "raw_rows": raw_rows,
             "deduped_rows": deduped_rows,
             "removed_permutations": raw_rows - deduped_rows,
+            "data_date": data_date.isoformat(),
         }
+    finally:
+        con.close()
+
+
+def _data_date(con: duckdb.DuckDBPyConnection) -> str | None:
+    """ISO date of the data, or None for a database imported before dataset_meta existed."""
+    if not _has_table(con, "dataset_meta"):
+        return None
+    row = con.execute("SELECT data_date FROM dataset_meta").fetchone()
+    return row[0].isoformat() if row and row[0] else None
+
+
+def data_date(db_path: Path) -> str | None:
+    con = connect(db_path, read_only=True)
+    try:
+        return _data_date(con)
     finally:
         con.close()
 

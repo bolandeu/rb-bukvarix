@@ -12,7 +12,7 @@ uv tool install --editable .                # команда bukvarix глоба
 # база по умолчанию: user_data_dir("bukvarix")/bukvarix.duckdb
 # (macOS ~/Library/Application Support/bukvarix/); другой путь — db set-path или BUKVARIX_DB_PATH
 
-bukvarix db import-keywords keywords213.tsv --confirm  # ~4 мин — импорт + физический дедуп перестановок слов
+bukvarix db import-keywords keywords213.tsv --data-date <дата выгрузки> --confirm  # ~4 мин — импорт + физический дедуп перестановок слов
 bukvarix db normalize --confirm                        # ~7 мин — content_signature (стоп-слова) + lemma_signature (леммы)
 bukvarix db reindex --confirm                          # ~16 мин — индексы на signature/content_signature/lemma_signature (для freq)
 bukvarix db build-postings --confirm                   # ~4.5 мин — инвертированный индекс лемм (для search), проблема 6
@@ -331,3 +331,17 @@ ART-вставка (`duckdb::Prefix::Append` в стеке, CPU ~25-30 % = од�
    просто медленно.
 3. Бэкап перед каждым потенциально долгим/необратимым шагом, удалять
    только после проверки реальными запросами.
+
+## Дата данных (`data_date`) — с 0.4.0
+
+`freq` отдаёт у каждой частоты источник, регион и дату данных (T167:
+подбор запросов интента, сценарий S3). В самой выгрузке Bukvarix даты нет
+(TSV `phrase\tfreq` без заголовка), в базе до 0.4.0 — тоже (таблицы
+`keywords`, `word_lemmas`, `lemma_postings*`; `lemma_postings_meta.built_at`
+— дата постройки индекса, не данных). Решение: `db import-keywords`
+сохраняет дату в таблицу `dataset_meta(data_date, source_file,
+imported_at)` — из `--data-date`, иначе по дате изменения TSV (≈ дата
+скачивания; `cp` без `-p` её сбрасывает, поэтому лучше задавать явно).
+Рабочая база импортирована до этого, `data_date` у неё `null`, пока её не
+переимпортируют; регион (`213`) и источник (`bukvarix`) — константы: база —
+одна московская выгрузка.

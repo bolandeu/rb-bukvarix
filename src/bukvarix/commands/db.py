@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import typer
@@ -8,6 +9,7 @@ from .. import output
 from ..core import services
 from ..core.db import build_indexes, build_lemma_postings, import_keywords
 from ..core.db import normalize as db_normalize
+from ..core.errors import InvalidArguments
 
 app = output.group("Обслуживание базы данных (не часть обычного поиска — см. 'bukvarix search --help').")
 
@@ -40,6 +42,9 @@ def import_keywords_cmd(
     path: Path = typer.Argument(
         ..., exists=True, readable=True, help="Путь к TSV с ключевыми словами (phrase\\tfreq, без заголовка)"
     ),
+    data_date: str | None = typer.Option(
+        None, "--data-date", help="Дата выгрузки данных, YYYY-MM-DD (по умолчанию — дата изменения TSV)."
+    ),
     confirm: bool = output.ConfirmOption,
     dry_run: bool = output.DryRunOption,
     json_output: bool = output.JsonOption,
@@ -51,10 +56,15 @@ def import_keywords_cmd(
     Деструктивно: выполняет CREATE OR REPLACE TABLE — существующая таблица
     keywords (и всё, что построили над ней normalize/reindex) пропадает
     после запуска. Сделайте бэкап файла базы заранее (см. AGENTS.md) —
-    автоматического бэкапа нет.
+    автоматического бэкапа нет. Дата данных (--data-date, иначе дата
+    изменения TSV) сохраняется в базе и отдаётся в 'freq' как data_date.
 
-    Example: {cli} db import-keywords msk.tsv --dry-run
+    Example: {cli} db import-keywords msk.tsv --data-date 2026-08-01 --dry-run
     """
+    try:
+        parsed_date = dt.date.fromisoformat(data_date) if data_date else None
+    except ValueError:
+        raise InvalidArguments(f"--data-date must be YYYY-MM-DD, got {data_date!r}.") from None
     db_path = services.resolve_db_path()
     if output.is_dry_run(ctx):
         output.emit_success(
@@ -69,7 +79,7 @@ def import_keywords_cmd(
         ctx, f"This replaces the entire keywords table in {db_path} — make sure you have a backup", confirm
     )
     output.vecho(ctx, f"Importing {path} into {db_path} ...")
-    result = import_keywords(db_path, path)
+    result = import_keywords(db_path, path, data_date=parsed_date)
     output.emit_success(
         ctx,
         result,

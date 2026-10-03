@@ -324,6 +324,8 @@ def test_freq_without_phrases_is_invalid_arguments(imported_db: Path, monkeypatc
     assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
     code, payload = invoke_json("freq", "--input", "-", input="\n  \n")
     assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
+    code, payload = invoke_json("freq", "--input", "/no/such/phrases.txt")
+    assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS")
 
 
 def test_freq_data_date_is_null_for_an_old_database(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
