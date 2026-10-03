@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import pytest
@@ -57,3 +58,19 @@ def postings_db(normalized_db: Path) -> Path:
     """normalized_db, plus the lemma_postings inverted index."""
     bukvarix_db.build_lemma_postings(normalized_db)
     return normalized_db
+
+
+CONTRACT_DATA = Path(__file__).parent / "contracts" / "data"
+
+
+@pytest.fixture
+def contract_bukvarix_db(tmp_path: Path, small_tsv: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Offline data for the consumers' contracts (tests/contracts/fixtures.yaml): _ROWS built into a full
+    database with a data date, BUKVARIX_DB_PATH pointing at it, tests/contracts/data/ as the working dir."""
+    db_path = tmp_path / "contract.duckdb"
+    bukvarix_db.import_keywords(db_path, small_tsv, data_date=dt.date(2026, 9, 23))
+    bukvarix_db.normalize(db_path)
+    bukvarix_db.build_lemma_postings(db_path)
+    monkeypatch.setenv("BUKVARIX_DB_PATH", str(db_path))
+    monkeypatch.chdir(CONTRACT_DATA)
+    return db_path

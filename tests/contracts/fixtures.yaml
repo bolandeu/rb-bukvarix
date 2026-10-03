@@ -6,6 +6,14 @@
 #   recorded responses, a filled cache, fake keys — for every case unless it says
 #   `offline_cache: false`; those get `no_cache` (if set) and must fail before
 #   reaching the provider.
-placeholders: {}
-offline_cache: null
+#
+# bukvarix: сети нет вовсе — офлайн-данные это маленькая база DuckDB из _ROWS
+# (tests/conftest.py), собранная целиком (import с датой данных 2026-09-23,
+# normalize, lemma postings). `contract_bukvarix_db` ставит на неё BUKVARIX_DB_PATH
+# и делает tests/contracts/data/ рабочей папкой — поэтому плейсхолдер-файл — просто
+# имя. phrases.txt: точное совпадение, перестановка, словоформа (lemma), без стоп-слова
+# и фраза, которой в базе нет (частота 0).
+placeholders:
+  fixture_phrases_file: phrases.txt
+offline_cache: contract_bukvarix_db
 no_cache: null
