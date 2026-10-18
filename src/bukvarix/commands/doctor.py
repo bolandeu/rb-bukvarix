@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 
 from .. import output
-from ..core import deps, services
+from ..core import api, deps, services
 from ..core.version import DEV_VERSION, installed_version
 
 _PACKAGE_NAME = __name__.split(".")[0]
@@ -39,7 +39,9 @@ def doctor(
     """Проверить готовность окружения, базы данных и внешних зависимостей.
 
     Внешние программы — по одной проверке `external:<имя>` на каждую из
-    записей tool.rb.external в pyproject.toml (сейчас их нет).
+    записей tool.rb.external в pyproject.toml (сейчас их нет). api_key —
+    откуда берётся ключ веб-API (BUKVARIX_API_KEY или бесплатный 'free'),
+    без сетевого запроса и без значения ключа.
 
     Всегда завершается с exit 0 — сам отчёт и есть результат; `healthy`
     показывает, прошли ли все проверки.
@@ -49,6 +51,8 @@ def doctor(
     checks: list[dict] = [{"name": "python", "ok": True}]
     checks.append({"name": "cli_version", "ok": True, "detail": installed_version() or DEV_VERSION})
     checks.extend(_db_checks())
+    # --source api / site: which key is used, no network call
+    checks.append({"name": "api_key", "ok": True, "detail": api.key_source()})
     checks.extend(deps.doctor_checks())  # [[tool.rb.external]] in pyproject.toml
 
     all_ok = all(check["ok"] for check in checks)

@@ -7,12 +7,16 @@ from pathlib import Path
 import typer
 
 from .. import output
-from ..core import services
+from ..core import api, services
 from ..core.db import search as db_search
 from ..core.db import search_smart
 from ..core.errors import InvalidArguments
 
 _MODES = {"contains", "words", "prefix", "exact", "query", "scan"}
+_SOURCES = {"local", "api"}
+# rows taken from the API per search: it returns phrases shortest first, not by frequency,
+# so a few hundred rows hold the phrase itself and its close variants
+_API_MIN_FETCH = 200
 
 
 @output.guard
@@ -25,6 +29,11 @@ def search(
         help="без флага — умный дефолт (self + похожие фразы, порядок/форма слов не важны, как в Wordstat) | contains | words | prefix | exact | query | scan",
     ),
     limit: int = typer.Option(20, "--limit", help="Сколько похожих фраз вернуть."),
+    source: str = typer.Option(
+        "local",
+        "--source",
+        help="local — локальная база (Москва, freq_msk_exact) | api — веб-API Bukvarix (весь мир, freq_world_exact/freq_world_broad, нужна сеть)",
+    ),
     csv_path: Path | None = typer.Option(None, "--csv", help="Сохранить результаты в CSV вместо печати"),
     json_output: bool = output.JsonOption,
     quiet: bool = output.QuietOption,
@@ -43,10 +52,26 @@ def search(
     --mode scan: то же, что дефолт, но полным сканом без индекса лемм
       (медленно; ищет по подстроке — для сверки с индексом)
 
+    --source api: те же поля ответа, но данные веб-API Bukvarix по региону
+    «Весь мир» (region "world", source "bukvarix-api"): freq_world_exact —
+    точная частотность, freq_world_broad — широкая. Операторы — синтаксис
+    API (+слово, -слово, !слово). API отдаёт фразы от коротких к длинным,
+    поэтому берутся первые max(--limit, 200) строк (fetched) и сортируются
+    по точной частотности; total_count — полное число фраз в API,
+    truncated — взяты не все, total_freq_sum — null. Без --mode.
+    Ключ — BUKVARIX_API_KEY, без него бесплатный 'free'.
+
     Example: {cli} search "растаможка авто" --limit 10 --json
     """
     if mode is not None and mode not in _MODES:
         raise InvalidArguments(f"Invalid --mode: {mode!r}. Use {'|'.join(sorted(_MODES))}.")
+    if source not in _SOURCES:
+        raise InvalidArguments(f"Invalid --source: {source!r}. Use local|api.")
+    if source == "api":
+        if mode is not None:
+            raise InvalidArguments("--mode works only with --source local.")
+        _search_api(ctx, query, limit, csv_path)
+        return
 
     db_path = services.resolve_db_path()
     services.require_db_ready(db_path)
@@ -63,16 +88,7 @@ def search(
     elapsed = time.perf_counter() - t0
 
     if csv_path:
-        fieldnames = list(results[0].keys()) if results else ["phrase", "freq_msk_exact"]
-        with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(results)
-        output.emit_success(
-            ctx,
-            {"query": query, "saved_to": str(csv_path), "rows": len(results)},
-            render_human=lambda d: output.human.echo(f"Saved {d['rows']} rows to {d['saved_to']} ({elapsed:.3f}s)"),
-        )
+        _save_csv(ctx, query, csv_path, results, ["phrase", "freq_msk_exact"], elapsed)
         return
 
     payload = {"query": query, "mode": mode or "default", "results": results, "elapsed_seconds": elapsed}
@@ -81,4 +97,52 @@ def search(
         payload["total_count"] = total_count
         payload["total_freq_sum"] = total_freq_sum
         payload["engine"] = engine
+    output.emit_success(ctx, payload, render_human=output.human.render_search)
+
+
+def _save_csv(
+    ctx: typer.Context, query: str, csv_path: Path, results: list[dict], default_fields: list[str], elapsed: float
+) -> None:
+    fieldnames = list(results[0].keys()) if results else default_fields
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(results)
+    output.emit_success(
+        ctx,
+        {"query": query, "saved_to": str(csv_path), "rows": len(results)},
+        render_human=lambda d: output.human.echo(f"Saved {d['rows']} rows to {d['saved_to']} ({elapsed:.3f}s)"),
+    )
+
+
+def _search_api(ctx: typer.Context, query: str, limit: int, csv_path: Path | None) -> None:
+    if limit < 1:
+        raise InvalidArguments("--limit must be at least 1.")
+    t0 = time.perf_counter()
+    rows = api.keywords(query, min(max(limit, _API_MIN_FETCH), api.MAX_ROWS))
+    total_count = api.keywords_count(query)
+    self_row = api.pick_phrase(rows, query)
+    if self_row is None and api.phrase_words(query):
+        self_row = api.lookup(query)
+    results = sorted(rows, key=lambda r: r["freq_world_exact"] or 0, reverse=True)[:limit]
+    elapsed = time.perf_counter() - t0
+
+    if csv_path:
+        _save_csv(ctx, query, csv_path, results, ["phrase", "freq_world_exact", "freq_world_broad"], elapsed)
+        return
+
+    payload = {
+        "query": query,
+        "mode": "default",
+        "source": api.SOURCE,
+        "region": api.REGION_WORLD,
+        "results": results,
+        "self": {**self_row, "matched_via": "exact"} if self_row else None,
+        "total_count": total_count,
+        "total_freq_sum": None,
+        "fetched": len(rows),
+        "truncated": total_count > len(rows),
+        "engine": "api",
+        "elapsed_seconds": elapsed,
+    }
     output.emit_success(ctx, payload, render_human=output.human.render_search)

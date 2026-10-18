@@ -135,3 +135,55 @@ class DatabaseNotReady(CliError):
             ),
             exit_code=1,
         )
+
+
+class ApiError(CliError):
+    """The Bukvarix web API (core/api.py) answered with an error status not mapped below (400, 500, ...)."""
+
+    def __init__(self, status: int) -> None:
+        super().__init__(
+            "API_ERROR",
+            f"Bukvarix API answered HTTP {status}.",
+            action="Check the query/domain; on 500 retry later or use the local database (--source local).",
+            exit_code=1,
+        )
+
+
+class ApiCredentialsInvalid(CliError):
+    def __init__(self) -> None:
+        super().__init__(
+            "CREDENTIALS_INVALID",
+            "Bukvarix API rejected the API key (HTTP 401).",
+            action="Fix or unset BUKVARIX_API_KEY (without it the free key 'free' is used).",
+            exit_code=3,
+        )
+
+
+class ApiQuotaExceeded(CliError):
+    def __init__(self) -> None:
+        super().__init__(
+            "QUOTA_EXCEEDED",
+            "Bukvarix API limit exceeded (HTTP 402): too many requests or rows, or a paid-only parameter.",
+            action="Lower --limit, wait before retrying, or set a paid key in BUKVARIX_API_KEY.",
+            exit_code=1,
+        )
+
+
+class ApiRateLimited(CliError):
+    def __init__(self, status: int) -> None:
+        super().__init__(
+            "RATE_LIMITED",
+            f"Bukvarix API still answers HTTP {status} after 3 retries (rate limit or maintenance).",
+            action="Wait a few minutes and retry.",
+            exit_code=1,
+        )
+
+
+class ApiNetworkError(CliError):
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            "NETWORK_ERROR",
+            f"Cannot reach the Bukvarix API: {reason}.",
+            action="Check the network connection, or use the local database (--source local).",
+            exit_code=1,
+        )

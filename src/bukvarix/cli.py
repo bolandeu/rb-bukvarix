@@ -5,7 +5,7 @@ from importlib import resources
 import typer
 
 from . import output
-from .commands import auth, db, doctor, freq, init, search, skill, stats, status
+from .commands import auth, db, doctor, freq, init, search, site, skill, stats, status
 from .commands import config as config_cmd
 from .core.version import DEV_VERSION, cli_name, installed_version, package_summary
 
@@ -29,6 +29,7 @@ app.command(name="status")(status.status)
 app.command(name="doctor")(doctor.doctor)
 app.command(name="search")(search.search)
 app.command(name="freq")(freq.freq)
+app.command(name="site")(site.site)
 app.command(name="stats")(stats.stats)
 
 

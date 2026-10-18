@@ -1,7 +1,9 @@
 # bukvarix — для агентов
 
 Локальный аналог Wordstat: частотность ключевых слов по Москве
-(113.7М фраз), без сети, без ограничений API. Команда `bukvarix`
+(113.7М фраз), без сети, без ограничений API. Плюс веб-API Bukvarix
+(`--source api`, `site`): частотность по всему миру и ключевые слова
+доменов — нужна сеть. Команда `bukvarix`
 доступна глобально в shell. История решений и проблем при сборке базы —
 `docs/build.md`. Развёрнутые примеры вывода — `docs/examples.md`.
 
@@ -101,7 +103,7 @@ cp ~/Library/Application\ Support/bukvarix/bukvarix.duckdb /Volumes/Data/bukvari
    пользователя на confirm; DATABASE_NOT_READY — БД ещё не собрана, см.
    'bukvarix db import-keywords')
 2  неверные аргументы
-3  credentials неисправны (в bukvarix не бывает: секретов нет)
+3  credentials неисправны (CREDENTIALS_INVALID — API отверг BUKVARIX_API_KEY)
 4  проект не инициализирован (только для init/status/config — search/
    freq/stats/db в проекте не нуждаются)
 6  CLI старее, чем требует .bukvarix/config.toml проекта
@@ -171,6 +173,55 @@ Wordstat: «авто в растаможка» = «растаможка авто
 - Фразы нет в базе — `freq_msk_exact: 0`, `matched_via: null`, не ошибка.
 - `data_date` — дата выгрузки Bukvarix: сохраняется в таблицу `dataset_meta` при `db import-keywords` (`--data-date YYYY-MM-DD`, иначе дата изменения TSV); `null` — база импортирована до 0.4.0; дату можно дописать без переимпорта: `bukvarix db set-data-date YYYY-MM-DD --confirm`.
 
+### `--source api` у `search` и `freq` — веб-API Bukvarix (весь мир)
+
+Тот же конверт, что у локальной базы, но частотность по региону «Весь
+мир»: `freq_world_exact` (точная, «!слово») и `freq_world_broad` (широкая)
+вместо `freq_msk_exact`; `region: "world"`, `source: "bukvarix-api"`.
+Смешанного режима (Москва + мир в одной строке) нет — сознательно.
+
+- `search --source api`: API отдаёт фразы **от коротких к длинным**, а не
+  по частотности, а выгрузка 1 млн строк идёт минуты. Поэтому берутся
+  первые `max(--limit, 200)` строк (`fetched`), сортируются по
+  `freq_world_exact`; `total_count` — полное число фраз (отдельный запрос
+  `result_count=1`), `truncated` — взяты не все, `total_freq_sum: null`,
+  `engine: "api"`. `--mode` не поддерживается. Операторы — синтаксис API
+  (`+слово`, `-слово`, `!слово`); стоп-слова API тоже игнорирует.
+- `freq --source api`: по запросу `!w1 !w2` на фразу, затем строка с теми
+  же словами (порядок не важен, из перестановок — самая частая).
+  `data_date: null` — данные живые. Пауза 2 с между запросами: 100 фраз ≈
+  3.5 мин, ход `[i/n]` — в stderr.
+
+```json
+{"ok": true, "query": "растаможка авто", "mode": "default", "source": "bukvarix-api", "region": "world",
+ "results": [{"phrase": "калькулятор растаможки авто", "freq_world_exact": 4918, "freq_world_broad": 24211}, ...],
+ "self": {"phrase": "растаможка авто", "freq_world_exact": 2492, "freq_world_broad": 75991, "matched_via": "exact"},
+ "total_count": 16373, "total_freq_sum": null, "fetched": 200, "truncated": true, "engine": "api"}
+```
+
+### `bukvarix site DOMAIN... [--region msk] [--limit 1000] [--json] [--csv path]`
+
+Ключевые слова домена из веб-API. Один домен (`/v1/site/`): `phrase`,
+`freq_world_exact`, `freq_world_broad`, `serp_results`, `position`.
+2-10 доменов (`/v1/site_mcmp/`) — **ядро конкурентов**: плюс
+`domains_found`, `avg_position`, `positions: {"avito.ru": 2, "auto.ru": null}`
+(`null` — домена нет в выдаче); в CSV — колонка `position <домен>` на
+каждого. `--region` — выдача, по которой взяты позиции (25 кодов, список —
+`bukvarix site --help`: `msk`, `spb`, `rus`, `gmsk` = Google Москва…);
+частотность всегда по всему миру. `--limit` передаётся всегда (без него API
+отдаёт 250), максимум 1 млн; `total_count` — сколько фраз всего.
+
+### Веб-API: ключ, лимиты, ошибки
+
+Ключ — `BUKVARIX_API_KEY`, без него бесплатный `free` (в `doctor` —
+проверка `api_key`, значение не печатается). Лимиты бесплатного ключа:
+до 1 млн строк в отчёте, до 10 доменов, фильтры по частотности — только
+платно (402); суточного лимита запросов в документации нет. Паузы — как в
+надстройке SEMTools: не меньше 2 с между `keywords`, 1 с между `site`.
+429/503 — повтор через 5, 10, 20 с, затем `RATE_LIMITED`; 402 —
+`QUOTA_EXCEEDED`; 401 — `CREDENTIALS_INVALID` (exit 3); нет сети —
+`NETWORK_ERROR`; прочие статусы — `API_ERROR`. Кэша нет.
+
 ### `bukvarix stats [--json]`
 
 Путь к БД, размер в байтах, список таблиц, число строк `keywords`.
@@ -210,11 +261,11 @@ db reindex --confirm`; после команды — ошибка `No such optio
 
 ## Ограничения
 
-- Только регион Москва, только частотность (без поисковой выдачи/доменов — SERP вне скоупа).
+- Локальная база — только Москва; весь мир и домены — только через веб-API (сеть). Полной поисковой выдачи нет — это `serp`.
 - Нет операторов `"кавычки"`, `!точная форма`, `(a|b)` группы — сознательно не реализованы, работа с одной фразой.
 - `search` быстрый (0.1-0.4 с) только при собранных постингах (`engine: postings`); без них — полный скан, 16-35 с. См. `docs/build.md`, проблема 6.
 - Данные статичны (дамп от Bukvarix), не обновляются в реальном времени.
-- Секретов нет: `bukvarix auth status --json` (общий контракт всех инструментов) отдаёт пустой `credentials` и exit 0; `auth login/logout` нет.
+- Единственный секрет — необязательный `BUKVARIX_API_KEY` (переменная окружения, keychain не используется); `bukvarix auth status --json` по-прежнему отдаёт пустой `credentials` и exit 0, `auth login/logout` нет.
 
 ## Разработка и релиз
 
