@@ -10,6 +10,13 @@ one of added/changed/deprecated/removed/fixed/security), and
 
 <!-- towncrier release notes start -->
 
+## [0.5.0] - 2026-10-18
+
+### Added
+
+- Веб-API Bukvarix: `--source api` у `search` и `freq` — частотность по всему миру (`freq_world_exact`, `freq_world_broad`) в том же конверте; новая команда `site` — ключевые слова домена и ядро конкурентов (2-10 доменов) с позициями по 25 регионам выдачи. Ключ — `BUKVARIX_API_KEY` (по умолчанию бесплатный `free`), в `doctor` — проверка `api_key`.
+
+
 ## [0.4.1] - 2026-10-03
 
 ### Added
