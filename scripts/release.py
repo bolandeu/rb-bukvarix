@@ -588,8 +588,7 @@ def main() -> None:
     run("git", "commit", "-m", release_commit_message(version))
     run("git", "tag", "-a", tag, "-m", tag)
     print(
-        f"Released {tag} locally. Report it to tools: agent_say.sh tools "
-        "(repo, branch, tags, what is inside, release.py --check). dev pushes after the user's yes.\n"
+        f"Released {tag} locally. Push after the user's yes.\n"
         "TDD in the report: the failing (red) run of the new tests, committed before the code; "
         "every entry of 'existing tests' above with its reason."
     )
