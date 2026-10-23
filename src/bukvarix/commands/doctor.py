@@ -1,10 +1,12 @@
+"""The `doctor` command: checks of this CLI's own setup, one line per check."""
+
 from __future__ import annotations
 
 import typer
 
 from .. import output
 from ..core import api, deps, services
-from ..core.version import DEV_VERSION, installed_version
+from ..core.version import DEV_VERSION, installed_version, optional_module
 
 _PACKAGE_NAME = __name__.split(".")[0]
 
@@ -50,6 +52,11 @@ def doctor(
     """
     checks: list[dict] = [{"name": "python", "ok": True}]
     checks.append({"name": "cli_version", "ok": True, "detail": installed_version() or DEV_VERSION})
+    if project := optional_module(f"{_PACKAGE_NAME}.commands.project"):  # include_project=false drops it
+        checks.extend(project.doctor_checks(ctx))
+
+    if credentials := optional_module(f"{_PACKAGE_NAME}.credentials.health"):  # include_auth=false drops it
+        checks.extend(credentials.doctor_checks())
     checks.extend(_db_checks())
     # --source api / site: which key is used, no network call
     checks.append({"name": "api_key", "ok": True, "detail": api.key_source()})

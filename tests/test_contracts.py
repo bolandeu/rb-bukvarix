@@ -2,7 +2,7 @@
 
 The contracts are written by the consumers (through dev), not by this tool:
 `tests/contracts/<consumer>/<provider>.yaml`, format `contract: 1`
-(`tests/contracts/schema.json`; cli-generator architecture.md §13). The source of
+(`tests/contracts/schema.json`; the Standard, Consumer contracts). The source of
 truth is the consumer's repo; this repo keeps a copy and runs it in its gate.
 
 - `static` — against `describe --json`: commands (path, arguments, options), root
@@ -17,7 +17,7 @@ truth is the consumer's repo; this repo keeps a copy and runs it in its gate.
 
 `provider_range` limits a contract to those versions of this tool. One test per
 case, id `<consumer>:<section>:<name>`. The gate runs this file as its own step
-(`release.py --check`: "contracts"); a failing case stops the release. Never edit
+(`rb-release check`: "contracts"); a failing case stops the release. Never edit
 a consumer's contract to make it pass — that's the point.
 """
 
@@ -42,19 +42,15 @@ from packaging.version import Version
 from typer.testing import CliRunner
 
 from bukvarix.cli import app as cli_app
-from bukvarix.core import services
-from bukvarix.core.version import DEV_VERSION, installed_version
-
-# bukvarix: перенесено вручную из шаблона cli-generator v1.8.1 (tests/test_contracts.py.jinja).
-# describe --json у bukvarix нет — документ для static собирает cli_document() ниже.
-PROVIDER = "bukvarix"
-SKILL = Path(__file__).parent.parent / "src" / "bukvarix" / "data" / "SKILL.md"
+from bukvarix.core import opencli
+from bukvarix.core.version import DEV_VERSION, cli_name, installed_version
 
 CONTRACTS = Path(__file__).parent / "contracts"
 SCHEMA = json.loads((CONTRACTS / "schema.json").read_text())
 FIXTURES = CONTRACTS / "fixtures.yaml"
-# The version the gate is building (release.py sets it), else the installed one.
+# The version the gate is building, when set, else the installed one.
 VERSION_ENV = "RB_PROVIDER_VERSION"
+PG_URL = os.environ.get("TEST_DATABASE_URL")
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 FAMILIES = (  # (substring of the SQL type, family); first match wins
     ("timestamp", "datetime"),
@@ -102,7 +98,7 @@ def _read(path: Path, name: str) -> Any:
 
 def load_contracts(root: Path = CONTRACTS, provider: str | None = None) -> list[Contract]:
     """Every contract under `root` for `provider` (this CLI), validated against schema.json."""
-    provider = provider or PROVIDER
+    provider = provider or cli_name()
     contracts: list[Contract] = []
     for path in sorted(root.glob("*/*.yaml")):
         name = f"{path.parent.name}/{path.name}"
@@ -154,38 +150,6 @@ def applies(data: dict, version: str) -> bool:
 
 
 # --- static ----------------------------------------------------------------------
-
-
-def _click_command(command: Any, name: str) -> dict:
-    """One command of the click tree (typer vendors its own click: duck-typed, no isinstance)."""
-    entry: dict[str, Any] = {"name": name}
-    for param in command.params:
-        if param.param_type_name == "argument":
-            entry.setdefault("arguments", []).append({"name": param.name})
-        elif param.param_type_name == "option":
-            first, *rest = [*param.opts, *param.secondary_opts]
-            entry.setdefault("options", []).append({"name": first, "aliases": rest})
-    if subcommands := getattr(command, "commands", None):
-        entry["commands"] = [_click_command(sub, sub_name) for sub_name, sub in subcommands.items()]
-    return entry
-
-
-def documented_exit_codes(skill: str) -> list[int]:
-    """The exit codes listed under `## Errors` of the shipped SKILL.md (`bukvarix --ai`)."""
-    section = skill.split("## Errors", 1)[1].split("\n## ", 1)[0]
-    return sorted({int(code) for code in re.findall(r"^ {4}(\d+) ", section, re.MULTILINE)})
-
-
-def cli_document(app: typer.Typer = cli_app) -> dict:
-    """What `describe --json` would say, from what bukvarix has instead (it has no describe).
-
-    Commands and options — the click tree; exit codes — the table in the shipped
-    SKILL.md (`--ai`, the documentation agents read); env — what core/services.py reads.
-    """
-    command = _click_command(typer.main.get_command(app), PROVIDER)
-    command["exitCodes"] = [{"code": code} for code in documented_exit_codes(SKILL.read_text())]
-    command["metadata"] = [{"name": "x-rb-env", "value": [{"name": services._ENV_VAR, "purpose": "database"}]}]
-    return {"command": command}
 
 
 def _metadata(document: dict, name: str) -> Any:
@@ -311,8 +275,7 @@ def offline(mp: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
 @contextlib.contextmanager
 def _no_keychain() -> Iterator[None]:
-    """bukvarix stores no credentials and has no keyring: nothing to disable."""
-    yield
+    yield  # no credentials, no keychain
 
 
 def run_case(
@@ -324,7 +287,7 @@ def run_case(
     document: dict | None = None,
 ) -> None:
     """A `run` case: offline, no real keys, the provider's offline data in place; then its result."""
-    document = document or cli_document(app)
+    document = document or opencli.document(typer.main.get_command(app))
     argv = expand_argv(spec["argv"], fixtures.get("placeholders") or {})
     with pytest.MonkeyPatch.context() as mp, _no_keychain():
         for name in _env_names(document) | set(spec.get("env_unset", [])):
@@ -407,7 +370,7 @@ def test_contract(
     version = _version()
     if not applies(contract.data, version):
         pytest.skip(f"{case_id}: provider_range {contract.data['provider_range']}, this is {version}")
-    document = cli_document()
+    document = opencli.document(typer.main.get_command(cli_app))
     try:
         if kind == "command":
             check_static_command(spec, document)

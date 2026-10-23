@@ -1,0 +1,13 @@
+
+ Usage: bukvarix skill list [OPTIONS]
+
+ List the agent skills this CLI bundles: name and description.
+
+ Example: bukvarix skill list
+
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --json           Вывести результат в машиночитаемом формате JSON.                                │
+│ --quiet          Подавить второстепенный вывод.                                                  │
+│ --help           Show this message and exit.                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+

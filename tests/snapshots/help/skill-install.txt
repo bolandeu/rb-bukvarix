@@ -1,7 +1,9 @@
 
  Usage: bukvarix skill install [OPTIONS]
 
- Скопировать встроенный SKILL.md этого CLI в директорию skills AI-инструмента.
+ Скопировать встроенные skills этого CLI в директорию skills AI-инструмента.
+
+ Skill конвенций и каждый дополнительный skill пакета — каждый в свою директорию.
 
  Example: bukvarix skill install --tool claude-code
 
@@ -9,6 +11,7 @@
 │ --tool           <str>  Целевой AI-инструмент: один из claude-code, agents.                      │
 │                         [default: claude-code]                                                   │
 │ --project               Установить в текущий проект вместо пользовательской директории.          │
+│ --skill          <str>  Install only this bundled skill (see `skill list`); by default all.      │
 │ --json                  Вывести результат в машиночитаемом формате JSON.                         │
 │ --quiet                 Подавить второстепенный вывод.                                           │
 │ --help                  Show this message and exit.                                              │

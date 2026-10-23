@@ -1,15 +1,21 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v1.2.9
+_commit: v1.27.1
 _src_path: https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator.git
+antagor_prefix: BUKVARIX
 author_name: net.paradox
 cli_name: bukvarix
 description: Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix
 dist_name: rb-bukvarix
 dist_name_legacy: bukvarix
 include_auth: false
-include_ci: true
+include_contracts: true
+include_db: false
+include_describe: true
+include_project: true
 include_providers: false
+include_skill: true
+install_homeserver_users: rbtools
+install_mac: true
 package_name: bukvarix
-private_deps: false
 project_name: Bukvarix
 repository_url: https://homeserver.tailee01ab.ts.net:3000/bolandeu/bukvarix

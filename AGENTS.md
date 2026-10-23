@@ -1,5 +1,15 @@
 # bukvarix — для агентов
 
+Pointers for agents. Antagor shows the changing state (statuses, branches, tasks): `antagor board`.
+
+- What the project is, and the domain glossary: `CONTEXT.md`. Take terms only from there.
+- Decisions and why: `docs/adr/` (format: `docs/adr/README.md`).
+- Code rules for review: `CODING_STANDARDS.md`.
+- Antagor keeps the tasks and epics: `.agents/antagor/`.
+- How to write to the Human and to agents (ASD-STE100): the skill `antagor-method`, section «How to write to the Human and to agents».
+- The package Standard: https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator/src/branch/main/skills/cli-builder/reference/standard.md (sections by name, for example «Install»).
+- The gate before a commit: the `rb-release check` step of `.gitea/workflows/ci.yml` — run that command.
+
 Локальный аналог Wordstat: частотность ключевых слов по Москве
 (113.7М фраз), без сети, без ограничений API. Плюс веб-API Bukvarix
 (`--source api`, `site`): частотность по всему миру и ключевые слова
@@ -270,46 +280,30 @@ db reindex --confirm`; после команды — ошибка `No such optio
 ## Разработка и релиз
 
 Общий стандарт — `~/Work/tools/docs/standard-release.md`, шаблон —
-`gh:bolandeu/cli-generator` (обновление: `uvx copier update --trust --defaults`).
+`https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator`
+(обновление: `uvx copier update --trust --defaults`).
 
-```bash
-uv sync                             # пишет uv.lock — коммитится
-uv run scripts/release.py --check   # весь гейт — перед каждым коммитом
-```
-
-- **Гейт перед каждым коммитом** — `uv run scripts/release.py --check`:
-  `uv lock --check`, ruff check + format, ty, pytest (порог покрытия,
-  контракт и снапшоты `--help`, форма `auth status`), фрагмент changelog,
-  сборка wheel с установкой во временный venv (`bukvarix --version` =
-  версии wheel). Тесты не трогают реальную базу — autouse-фикстура в
-  `tests/test_cli.py` подставляет пустой `BUKVARIX_DB_PATH`.
+- **Гейт перед каждым коммитом** — шаг `rb-release check` в
+  `.gitea/workflows/ci.yml`: его команду запускают из корня пакета.
+  Тесты не трогают реальную базу — autouse-фикстура в `tests/conftest.py`
+  подставляет пустой `BUKVARIX_DB_PATH`.
 - **Версия = git-тег** `vX.Y.Z` (uv-dynamic-versioning), `version =` в
   `pyproject.toml` нет и не добавлять. Без тега в истории сборка — `0.0.0`.
-- **Changelog = фрагменты.** `CHANGELOG.md` не править; каждое видимое
-  изменение — `uv run towncrier create +<slug>.<type>.md -c "..."`
-  (added/changed/deprecated/removed/fixed/security, в slug без точек).
-- **Релиз** — только с чистого актуального `main`:
-  `uv run scripts/release.py patch|minor|major` (гейт, towncrier, коммит
-  `Release vX.Y.Z`, тег); push — с подтверждением пользователя. На `0.x`:
-  исправление/совместимая фича — patch, ломающее изменение — minor.
+- **Changelog** пишет `antagor publish`; `CHANGELOG.md` руками не править.
+- **Релиз** — `antagor publish`. На `0.x`: исправление/совместимая фича —
+  patch, ломающее изменение — minor.
 - **Справка = докстринги.** Поменял поведение команды — поправь её
   докстринг в том же коммите: одна строка, абзац, строка
   `Example: {cli} <команда> …`; у каждого параметра `help=`. Затем
   `uv run pytest --snapshot-update` и прочитать diff в
-  `tests/snapshots/help/`. Следят хуки Claude Code (`.claude/settings.json`),
-  git pre-commit (`.githooks/`, `scripts/install_hooks.sh` один раз на клон)
-  и `tests/test_help.py`.
+  `tests/snapshots/help/`.
 - `src/bukvarix/data/SKILL.md` — только конвенции, без списка команд.
 
 ## Каждое заметное изменение выходит релизом
 
 Серверы, другие инструменты и Mac ставят только по тегам, не из `main`:
-влитое без релиза изменение для них не существует. Изменение с фрагментом
-changelog закончено только после релиза: влить в `main` →
-`uv run scripts/release.py patch|minor|major` → попросить пользователя
-сделать push с `--follow-tags` → назвать новый тег в отчёте. Служебные коммиты
-(без фрагмента) ждут следующего релиза. Не оставлять фрагмент на `main` без
-релиза, не назвав причину (`~/Work/tools/docs/standard-release.md` §3).
+влитое без релиза изменение для них не существует. Видимое изменение
+закончено только после релиза (`antagor publish`); назвать новый тег в отчёте.
 
 ## Инструмент в системе
 
@@ -324,3 +318,7 @@ changelog закончено только после релиза: влить в
 - **Локальные данные** — в `platformdirs.user_data_dir("<tool>")`, не в
   репозитории; всё состояние — в файле базы, миграции делает сам инструмент;
   сам инструмент данные никуда не выгружает.
+
+## Architect only
+
+A worker does not need this section: Antagor cuts it from the worker's brief.

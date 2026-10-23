@@ -13,7 +13,7 @@ import pytest
 
 from bukvarix.core import api
 
-from .test_cli import invoke, invoke_json
+from .test_cli import invoke, invoke_json, plain
 
 # keywords: phrase, words, chars, broad, !exact — shortest first, like the real API
 _KEYWORDS = {
@@ -96,7 +96,7 @@ def test_search_api_csv_and_human_output(fake_api, tmp_path: Path) -> None:
     assert next(csv.reader(out.open(encoding="utf-8"))) == ["phrase", "freq_world_exact", "freq_world_broad"]
     result = invoke("search", "растаможка авто", "--source", "api")
     assert result.exit_code == 0
-    assert "растаможка авто: 2492" in result.stdout
+    assert "растаможка авто: 2492" in plain(result.stdout)
 
 
 def test_search_api_rejects_mode_and_bad_values(fake_api) -> None:
@@ -109,7 +109,7 @@ def test_search_api_rejects_mode_and_bad_values(fake_api) -> None:
 def test_freq_api_same_envelope_world_fields_and_progress(fake_api) -> None:
     result = invoke("freq", "купить окна", "нет такой фразы", "--source", "api", "--json")
     assert result.exit_code == 0
-    assert "[1/2] купить окна" in result.stderr
+    assert "[1/2] купить окна" in plain(result.stderr)
     payload = json.loads(result.stdout)
     assert (payload["count"], payload["region"], payload["source"], payload["data_date"]) == (
         2,

@@ -22,8 +22,6 @@ from tests.test_contracts import (
     check_root_options,
     check_static_command,
     check_view_columns,
-    cli_document,
-    documented_exit_codes,
     expand_argv,
     load_contracts,
     run_case,
@@ -256,20 +254,4 @@ def test_the_windmill_contract_is_accepted_as_is(tmp_path: Path) -> None:
         "windmill:run:auth_missing_is_exit_3",
         "windmill:run:cache_info_json",
         "windmill:run:describe_json",
-    ]
-
-
-def test_bukvarix_document_comes_from_click_skill_and_services() -> None:
-    """No describe --json in bukvarix: static checks read the click tree, SKILL.md's exit codes, the db env var."""
-    document = cli_document()
-    check_static_command({"path": ["freq"], "arguments": ["queries"], "options": ["--input", "--json"]}, document)
-    check_static_command({"path": ["db", "set-data-date"]}, document)
-    check_root_options(["--version", "--json", "--ai"], document)
-    check_exit_codes([0, 1, 2, 3, 4, 6], document)
-    check_env(["BUKVARIX_DB_PATH"], document)
-    with pytest.raises(ContractError, match="exit code 5"):
-        check_exit_codes([5], document)
-    assert documented_exit_codes("## Errors\n\n    0  ok\n    2  bad\n       7 not a row\n\n## Next\n    9  no") == [
-        0,
-        2,
     ]

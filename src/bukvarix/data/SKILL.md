@@ -17,24 +17,20 @@ prints this document.
 ## Install (if `bukvarix --version` fails)
 
 ```bash
-uv tool install "rb-bukvarix @ git+https://github.com/bolandeu/bukvarix.git@vX.Y.Z"
+uv tool install rb-bukvarix --index https://homeserver.tailee01ab.ts.net:3000/api/packages/bolandeu/pypi/simple
+```
+
+From the git tag instead:
+
+```bash
+uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/bukvarix.git@vX.Y.Z"
 ```
 
 Replace `vX.Y.Z` with the latest release tag (install from a tag, never a
-branch: standard §9).
+branch: [the Standard](https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator/src/branch/main/skills/cli-builder/reference/standard.md), Install).
 
 Same command on macOS, Linux and Windows; `uv tool upgrade rb-bukvarix`
 updates it. Do not run from source unless asked to develop the CLI.
-
-The repository may be private. On an auth error (`Authentication failed`,
-`could not read Username`, `Repository not found`) do not ask for a token:
-run `gh auth status`; if it passes, `gh auth setup-git` and retry; if not,
-ask the user to run `gh auth login`. With SSH keys configured, this works
-without any of that:
-
-```bash
-uv tool install "rb-bukvarix @ git+ssh://git@github.com/bolandeu/bukvarix.git@vX.Y.Z"
-```
 
 ## Conventions
 
@@ -73,6 +69,12 @@ uv tool install "rb-bukvarix @ git+ssh://git@github.com/bolandeu/bukvarix.git@vX
   default free key); `auth status --json`
   reports an empty `credentials` list and exits 0.
 
+- **`doctor --json`** first when something looks off — it reports
+  what the CLI needs to run: its version, the database, the API key source, the project and the external programs.
+- **`describe --json`** — the whole CLI as one machine-readable OpenCLI
+  document (commands, options, exit codes, env vars, data): the bare
+  document, no `{"ok": ...}` envelope.
+
 ## Destructive commands — always get explicit sign-off first
 
 `db import-keywords`, `db normalize`, `db reindex` and `db build-postings` mutate the live,
@@ -101,6 +103,7 @@ Read exit code → `error.code` → `error.action` (the concrete next command).
     1  general (UNEXPECTED = a bug: re-run with --verbose, report; ABORTED = user said no;
        DATABASE_NOT_READY = no db built yet → db import-keywords)
     2  invalid arguments
-    3  credentials unhealthy (never for bukvarix: it stores none)
+    3  credentials: API key rejected (CREDENTIALS_INVALID, BUKVARIX_API_KEY only)
     4  project not initialized (only for init/status/config — search/freq/stats/db don't need this)
+    5  provider error (shared-database errors of the template; bukvarix web-API errors use exit 1)
     6  CLI too old for this project → uv tool upgrade rb-bukvarix

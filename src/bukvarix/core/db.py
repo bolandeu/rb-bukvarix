@@ -11,6 +11,9 @@ import duckdb
 SOURCE = "bukvarix"
 REGION = "213"
 
+# The env vars `describe --json` lists for the database (core/opencli.py reads this name from core/db.py).
+ENV_VARS = {"BUKVARIX_DB_PATH": "Path to the .duckdb database file; overrides `db set-path` for one process"}
+
 
 def connect(db_path: Path, *, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -330,10 +333,9 @@ def _postings_usable(con: duckdb.DuckDBPyConnection) -> bool:
     if meta is None or meta[0] != current:
         import sys
 
-        print(
+        sys.stderr.write(
             f"warning: lemma_postings is stale (built over {meta[0] if meta else '?'} rows, keywords has "
-            f"{current}) — falling back to a full scan; rebuild with 'bukvarix db build-postings'",
-            file=sys.stderr,
+            f"{current}) — falling back to a full scan; rebuild with 'bukvarix db build-postings'\n"
         )
         return False
     return True

@@ -8,7 +8,7 @@ pinned by tag) can't rely on the lock file, so it checks at runtime:
 
 A missing or too old CLI fails with DEPENDENCY_TOO_OLD (exit 1) naming what is
 installed, what is needed and how to fix it — not with a confusing error from
-deep inside the other tool. See tools/docs/standard-release.md §5.
+deep inside the other tool. See the Standard, Technology.
 """
 
 from __future__ import annotations
@@ -34,13 +34,16 @@ _PACKAGE_NAME = __name__.split(".")[0]
 
 @dataclass(frozen=True)
 class External:
-    """One non-Python dependency, declared in pyproject.toml `[[tool.rb.external]]` (standard §12)."""
+    """One non-Python dependency, declared in pyproject.toml `[[tool.rb.external]]` (the Standard, Technology)."""
 
     name: str
     required: bool
     why: str
     min_version: str | None = None
     check: str | None = None  # command printing the version; default "<name> --version"
+    detect: bool = True  # False: run in a way the gate can't see (injected runner, absolute path)
+    dist: str | None = None  # distribution name for uv tool, if it's one of ours (default rb-<name>)
+    url: str | None = None  # its git repo, for a runnable pinned install in DEPENDENCY_TOO_OLD
 
 
 def _pyproject_text() -> str | None:
@@ -70,6 +73,9 @@ def declared() -> dict[str, External]:
             why=entry.get("why", ""),
             min_version=entry.get("min_version"),
             check=entry.get("check"),
+            detect=bool(entry.get("detect", True)),
+            dist=entry.get("dist"),
+            url=entry.get("url"),
         )
         for entry in entries
     }
@@ -102,7 +108,7 @@ def installed_cli_version(name: str) -> tuple[str | None, str | None]:
         result = subprocess.run(  # noqa: S603 — fixed argv, executable resolved via shutil.which
             [exe, *argv[1:]], capture_output=True, text=True, timeout=VERSION_TIMEOUT, check=False
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return exe, None
     return exe, (_version_in(result.stdout + "\n" + result.stderr) if result.returncode == 0 else None)
 
@@ -128,27 +134,32 @@ def doctor_checks() -> list[dict]:
 def require_cli(name: str, min_version: str | None = None, *, install_url: str | None = None) -> str:
     """Path of CLI `name` if it's installed at `min_version` or newer; raise DependencyTooOld otherwise.
 
-    `min_version` defaults to the one declared for `name` in pyproject.toml
-    `[[tool.rb.external]]` — declare every external CLI there (the gate
-    checks). `install_url` (the other tool's git repo, e.g.
+    `min_version`, `url` and `dist` default to what `[[tool.rb.external]]`
+    in pyproject.toml declares for `name` — declare every external CLI there
+    (the gate checks). A repo URL (`install_url` or the entry's `url`, e.g.
     "https://github.com/bolandeu/serp") makes the error's `action` a runnable
-    `uv tool install "git+<url>@v<min_version>"`; without it the action says
-    what to install but gives no URL (never a placeholder).
+    `uv tool install "<dist> @ git+<url>.git@v<min_version>" --force`, where
+    `dist` is the entry's `dist` or, for one of our tools, `rb-<name>`; without a URL the action says what to install, never a
+    placeholder URL.
 
     A dev build of the other tool (version `0.0.0…`, no release tag in reach)
     is accepted, the same way this CLI's own `cli.min_version` check treats it.
     """
     spec = declared().get(name)
     min_version = min_version or (spec.min_version if spec else None)
+    hint = {
+        "install_url": install_url or (spec.url if spec else None),
+        "dist": (spec.dist if spec else None) or (f"rb-{name}" if install_url or (spec and spec.url) else None),
+    }
     exe, reported = installed_cli_version(name)
     if exe is None:
-        raise DependencyTooOld(name, None, min_version, install_url=install_url)
+        raise DependencyTooOld(name, None, min_version, **hint)
     if min_version is None:
         return exe
     try:
         version = Version(reported or "")
     except InvalidVersion:
-        raise DependencyTooOld(name, reported or "unknown", min_version, install_url=install_url) from None
+        raise DependencyTooOld(name, reported or "unknown", min_version, **hint) from None
     if version.release != (0, 0, 0) and version < Version(min_version):
-        raise DependencyTooOld(name, reported, min_version, install_url=install_url)
+        raise DependencyTooOld(name, reported, min_version, **hint)
     return exe
