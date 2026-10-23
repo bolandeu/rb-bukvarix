@@ -5,6 +5,18 @@ All notable changes to this project are documented here. Versions follow
 
 The changelog is written by `antagor publish`; don't edit it by hand.
 
+## v0.6.0 — 2026-10-23
+
+### Main
+
+- daemon: enabled
+- mode: fast
+- antagor init: project bukvarix (BUKVARIX)
+- Template v1.27.1: update from v1.2.9
+- chore: copier source on Gitea
+- docs: убрать упоминания корневого агента tools (AGENTS.md, подсказка release.py)
+
+
 ## [0.5.0] - 2026-10-18
 
 ### Added
