@@ -1,6 +1,6 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v1.2.9
-_src_path: gh:bolandeu/cli-generator
+_src_path: https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator.git
 author_name: net.paradox
 cli_name: bukvarix
 description: Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix
@@ -12,4 +12,4 @@ include_providers: false
 package_name: bukvarix
 private_deps: false
 project_name: Bukvarix
-repository_url: https://github.com/bolandeu/bukvarix
+repository_url: https://homeserver.tailee01ab.ts.net:3000/bolandeu/bukvarix
