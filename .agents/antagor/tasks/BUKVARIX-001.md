@@ -1,7 +1,7 @@
 ---
 id: BUKVARIX-001
 title: 'Deps: setuptools for GHSA-xmj3-9gf7-h52w'
-status: in_progress
+status: in_review
 attempts: 0
 blocked: false
 blocked_reason: null
