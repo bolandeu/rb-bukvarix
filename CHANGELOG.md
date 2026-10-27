@@ -5,6 +5,12 @@ All notable changes to this project are documented here. Versions follow
 
 The changelog is written by `antagor publish`; don't edit it by hand.
 
+## v0.6.1 — 2026-10-27
+
+### Outside epics
+
+- Deps: setuptools for GHSA-xmj3-9gf7-h52w (BUKVARIX-001)
+
 ## v0.6.0 — 2026-10-23
 
 ### Main
