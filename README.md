@@ -10,8 +10,9 @@ uv sync
 uv run bukvarix --help
 ```
 
-The gate before a commit is the `rb-release check` step of
-`.gitea/workflows/ci.yml` — run that command from the package root. It covers
+The gate before a commit is `gate check`, run from the package root on this
+machine: the command is `[publish] gate_command` in `.agents/antagor/antagor.toml`.
+It covers
 ruff (security `S` rules included), ty, pytest with the coverage floor from
 `pyproject.toml`, the help snapshots and the consumer contracts.
 
