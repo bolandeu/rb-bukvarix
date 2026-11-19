@@ -33,7 +33,6 @@ uv tool install --editable .
 **On any other machine (any OS), from the Gitea package registry:**
 
 ```bash
-uv tool install rb-bukvarix --index https://homeserver.tailee01ab.ts.net:3000/api/packages/bolandeu/pypi/simple
 ```
 
 Or from a release tag:

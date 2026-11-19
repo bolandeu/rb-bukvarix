@@ -3,7 +3,7 @@
   "info": {
     "title": "bukvarix",
     "version": "<version>",
-    "summary": "Локальный аналог Wordstat поверх дампов ключевых слов Bukvarix"
+    "summary": "Keyword frequencies offline: a local Wordstat-alike over Bukvarix dumps."
   },
   "command": {
     "name": "bukvarix",
