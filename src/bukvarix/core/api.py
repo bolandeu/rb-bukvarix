@@ -12,11 +12,12 @@ Pacing follows the SEMTools add-in: at least 2 s between `keywords` calls,
 from __future__ import annotations
 
 import logging
-import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from rb_credentials import Store
 
 from .errors import ApiCredentialsInvalid, ApiError, ApiNetworkError, ApiQuotaExceeded, ApiRateLimited
 
@@ -65,13 +66,25 @@ _last_call: dict[str, float] = {}
 _log = logging.getLogger(__name__)
 
 
+_STORE = Store("bukvarix")
+_PROVIDER = "api"
+_LEGACY = {"api_key": KEY_ENV}
+
+
 def api_key() -> str:
-    return os.environ.get(KEY_ENV) or FREE_KEY
+    """The Bukvarix key: the store's `bukvarix:api` credential, else the built-in free key."""
+    credential = _STORE.get(_PROVIDER, env_fields=["api_key"], legacy_env=_LEGACY)
+    return (credential or {}).get("api_key") or FREE_KEY
 
 
 def key_source() -> str:
     """Where the key comes from, for doctor — never the value itself."""
-    return KEY_ENV if os.environ.get(KEY_ENV) else "free (built-in)"
+    located = _STORE.locate(_PROVIDER, ["api_key"], legacy_env=_LEGACY)
+    entry = located.get("api_key")
+    if entry is None:
+        return "free (built-in)"
+    _, source, where = entry
+    return where if source == "env" else f"keychain {where}"
 
 
 def _pace(family: str) -> None:
