@@ -488,7 +488,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.6" },
     { name = "pymorphy3", specifier = ">=2.0.6" },
     { name = "pymorphy3-dicts-ru", specifier = ">=2.4.417150.4580142" },
-    { name = "rb-credentials", directory = "../rb-credentials" },
+    { name = "rb-credentials", editable = "../rb-credentials" },
     { name = "rich", specifier = ">=13.7" },
     { name = "tomli-w", specifier = ">=1.0" },
     { name = "typer", specifier = ">=0.27,<0.29" },
@@ -508,7 +508,7 @@ mutation = [{ name = "mutmut", specifier = ">=3.3" }]
 
 [[package]]
 name = "rb-credentials"
-source = { directory = "../rb-credentials" }
+source = { editable = "../rb-credentials" }
 dependencies = [
     { name = "pydantic" },
 ]
