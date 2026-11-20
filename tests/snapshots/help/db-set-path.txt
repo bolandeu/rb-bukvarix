@@ -3,7 +3,7 @@
 
  Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH).
 
- Example: bukvarix db set-path /Volumes/Data/bukvarix/bukvarix.duckdb
+ Example: bukvarix db set-path /Volumes/Data/bukvarix/rb_bukvarix.duckdb
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
 │ *    path      <path>  Путь к файлу .duckdb для команд search/freq/stats/db. [required]          │

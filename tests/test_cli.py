@@ -14,11 +14,11 @@ import typer
 import yaml
 from typer.testing import CliRunner
 
-from bukvarix import output
-from bukvarix._distribution import DIST_NAME
-from bukvarix.cli import app
-from bukvarix.core import errors, services
-from bukvarix.core.errors import InvalidArguments
+from rb_bukvarix import output
+from rb_bukvarix._distribution import DIST_NAME
+from rb_bukvarix.cli import app
+from rb_bukvarix.core import errors, services
+from rb_bukvarix.core.errors import InvalidArguments
 
 runner = CliRunner()
 
@@ -56,7 +56,7 @@ def no_real_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def test_distribution_name_is_declared_once() -> None:
     """Only _distribution.py assigns DIST_NAME; a merge that re-declares it elsewhere would silently win."""
-    src = Path(__file__).resolve().parents[1] / "src" / "bukvarix"
+    src = Path(__file__).resolve().parents[1] / "src" / "rb_bukvarix"
     declaring = sorted(
         str(path.relative_to(src))
         for path in src.rglob("*.py")
@@ -66,7 +66,7 @@ def test_distribution_name_is_declared_once() -> None:
 
 
 def test_version_falls_back_to_legacy_distribution_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bukvarix.core import version
+    from rb_bukvarix.core import version
 
     installed = version.installed_version()
     monkeypatch.setattr(version, "DIST_NAME", "no-such-distribution-xyz")
@@ -467,7 +467,7 @@ def test_freq_without_phrases_is_invalid_arguments(imported_db: Path, monkeypatc
 
 
 def test_freq_data_date_is_null_for_an_old_database(imported_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from bukvarix.core import db as bukvarix_db
+    from rb_bukvarix.core import db as bukvarix_db
 
     con = bukvarix_db.connect(imported_db)
     con.execute("DROP TABLE dataset_meta")
@@ -486,7 +486,7 @@ def test_db_import_rejects_a_malformed_data_date(small_tsv: Path) -> None:
 def test_db_set_data_date_on_an_old_database_then_freq_reports_it(
     imported_db: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bukvarix.core import db as bukvarix_db
+    from rb_bukvarix.core import db as bukvarix_db
 
     con = bukvarix_db.connect(imported_db)
     con.execute("DROP TABLE dataset_meta")

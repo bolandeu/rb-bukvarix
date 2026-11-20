@@ -939,7 +939,7 @@
         "commands": [
           {
             "name": "set-path",
-            "description": "Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH).\n\nExample: bukvarix db set-path /Volumes/Data/bukvarix/bukvarix.duckdb",
+            "description": "Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH).\n\nExample: bukvarix db set-path /Volumes/Data/bukvarix/rb_bukvarix.duckdb",
             "options": [
               {
                 "name": "--json",
@@ -1802,7 +1802,7 @@
         "value": {
           "tool": "bukvarix",
           "dist": "rb-bukvarix",
-          "package": "bukvarix"
+          "package": "rb_bukvarix"
         }
       },
       {

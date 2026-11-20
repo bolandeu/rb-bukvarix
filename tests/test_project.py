@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bukvarix.core import services
+from rb_bukvarix.core import services
 
 from .test_cli import invoke, invoke_json
 

@@ -167,7 +167,7 @@ def add_lemma_signature(con: duckdb.DuckDBPyConnection) -> int:
     # about to get a (new) signature, so search can't read stale postings.
     # A fully normalized table is left alone: rebuilding postings is costly.
     if _fetchone(con, "SELECT count(*) FROM keywords WHERE lemma_signature IS NULL")[0]:
-        from bukvarix.core.db import drop_lemma_postings
+        from rb_bukvarix.core.db import drop_lemma_postings
 
         drop_lemma_postings(con)
 

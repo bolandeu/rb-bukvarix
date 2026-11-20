@@ -24,7 +24,7 @@ def set_path(
 ) -> None:
     """Сохранить путь к файлу базы данных (переопределяется переменной окружения BUKVARIX_DB_PATH).
 
-    Example: {cli} db set-path /Volumes/Data/bukvarix/bukvarix.duckdb
+    Example: {cli} db set-path /Volumes/Data/bukvarix/rb_bukvarix.duckdb
     """
     resolved = path.expanduser().resolve()
     services.set_user_db_path(resolved)

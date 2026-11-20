@@ -244,7 +244,7 @@ def build_lemma_postings(
     lemma order, so the final table is globally sorted with only
     ~`chunk_rows` rows in any one sort. The staging file is deleted after.
     """
-    from bukvarix.core.errors import CliError
+    from rb_bukvarix.core.errors import CliError
 
     say = progress or (lambda _msg: None)
     work_dir = temp_directory or db_path.parent
@@ -395,7 +395,7 @@ def _signature(phrase: str) -> str:
 
 
 def _content_signature(phrase: str) -> str:
-    from bukvarix.core.normalize import STOPWORDS
+    from rb_bukvarix.core.normalize import STOPWORDS
 
     stopwords = set(STOPWORDS)
     return " ".join(sorted(w for w in phrase.lower().split(" ") if w not in stopwords))
@@ -488,7 +488,7 @@ def search_smart(db_path: Path, query: str, limit: int, *, force_scan: bool = Fa
     Also recognizes +word/-word operators (see query_syntax.py) right here
     in the default, lemmatized — unlike --mode query, which is literal.
     """
-    from bukvarix.core.query_syntax import parse_query
+    from rb_bukvarix.core.query_syntax import parse_query
 
     parsed = parse_query(query)
     con = connect(db_path, read_only=True)
@@ -520,7 +520,7 @@ def search_smart(db_path: Path, query: str, limit: int, *, force_scan: bool = Fa
             # does (812 vs 1824 phrases otherwise). The scan path gets this
             # for free — '%в%' matches almost any phrase. A query made only
             # of stop words keeps them, or it would match nothing.
-            from bukvarix.core.normalize import STOPWORDS
+            from rb_bukvarix.core.normalize import STOPWORDS
 
             stop = set(STOPWORDS) - set(parsed.forced)
             content = [lem for w, lem in zip(parsed.required, required, strict=True) if w not in stop]
@@ -556,7 +556,7 @@ def search_smart(db_path: Path, query: str, limit: int, *, force_scan: bool = Fa
 
 def search_query(db_path: Path, query: str, limit: int) -> list[dict]:
     """search --mode query: parses +word/-word operators (see query_syntax.py)."""
-    from bukvarix.core.query_syntax import parse_query
+    from rb_bukvarix.core.query_syntax import parse_query
 
     parsed = parse_query(query)
     conditions = []
@@ -716,7 +716,7 @@ def freq_batch(db_path: Path, queries: list[str]) -> dict[str, dict | None]:
 
 
 def normalize(db_path: Path) -> dict:
-    from bukvarix.core.normalize import normalize as _normalize
+    from rb_bukvarix.core.normalize import normalize as _normalize
 
     con = connect(db_path)
     try:

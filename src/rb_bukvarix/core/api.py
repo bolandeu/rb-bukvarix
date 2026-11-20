@@ -1,4 +1,4 @@
-"""Client for the Bukvarix web API (http://api.bukvarix.com, docs: bukvarix.com/api.html).
+"""Client for the Bukvarix web API (http://api.bukvarix.com, docs: rb_bukvarix.com/api.html).
 
 The local database holds Moscow only; the API answers for the whole world
 (`freq_world_exact` = "!точная" frequency, `freq_world_broad` = broad) and

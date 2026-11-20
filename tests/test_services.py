@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from bukvarix.core import services
-from bukvarix.core.errors import CliTooOld, DatabaseNotReady, ProjectNotInitialized
-from bukvarix.core.models import ProjectConfig
+from rb_bukvarix.core import services
+from rb_bukvarix.core.errors import CliTooOld, DatabaseNotReady, ProjectNotInitialized
+from rb_bukvarix.core.models import ProjectConfig
 
 # --- project scaffolding (generic template shape) --------------------------
 

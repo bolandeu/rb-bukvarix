@@ -23,8 +23,8 @@ import typer
 from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
 from typer.testing import CliRunner
 
-from bukvarix.cli import app
-from bukvarix.core import errors, opencli
+from rb_bukvarix.cli import app
+from rb_bukvarix.core import errors, opencli
 
 CLI = "bukvarix"
 SCHEMA = json.loads((Path(__file__).parent / "data" / "opencli.schema.json").read_text())

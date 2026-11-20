@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-bukvarix = "bukvarix.cli:main"
+bukvarix = "rb_bukvarix.cli:main"
 
 [project.urls]
 Repository = "https://github.com/bolandeu/bukvarix"
@@ -65,7 +65,7 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bukvarix"]
+packages = ["src/rb_bukvarix"]
 
 [tool.hatch.build.targets.wheel.force-include]
 # The installed CLI reads [[tool.rb.external]] from here (core/deps.py).
@@ -111,7 +111,7 @@ mac = true
 [tool.cli-generator]
 # Where scripts/check_command_docstrings.py (called by the project's checks)
 # looks for commands: a glob or a list of globs, relative to the repo root.
-commands = ["src/bukvarix/commands/*.py"]
+commands = ["src/rb_bukvarix/commands/*.py"]
 # gate check (the gate): extras to install before ruff/ty/pytest.
 # gate_extras = ["browser"]
 
@@ -125,7 +125,7 @@ addopts = "--cov --cov-report=term-missing:skip-covered"
 filterwarnings = ["ignore:(?s).*Can not relate snapshot:UserWarning"]
 
 [tool.mutmut]
-source_paths = ["src/bukvarix"]
+source_paths = ["src/rb_bukvarix"]
 also_copy = ["scripts/", "pyproject.toml"]  # tests read them (test_scripts.py, the distribution checks)
 pytest_add_cli_args = ["--no-cov"]  # fail_under would kill every mutant
 # only_mutate = ["*/core/normalize.py"]  # one module at a time on a big tool
@@ -168,8 +168,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 # Dynamic WHERE/column-list SQL built from internal fixed choices (a mode
 # name, a loop index, a stopword list already inserted via `repr()`) and
 # DuckDB `?` placeholders for every actual value — never raw user text.
-"src/bukvarix/core/db.py" = ["S608"]
-"src/bukvarix/core/normalize.py" = ["S608"]
+"src/rb_bukvarix/core/db.py" = ["S608"]
+"src/rb_bukvarix/core/normalize.py" = ["S608"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "httpx".msg = "Call external APIs through providers/ (subclass providers.HttpProvider)."

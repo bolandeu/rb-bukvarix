@@ -23,7 +23,7 @@ uv tool install rb-bukvarix --index https://homeserver.tailee01ab.ts.net:3000/ap
 From the git tag instead:
 
 ```bash
-uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/bukvarix.git@vX.Y.Z"
+uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/rb_bukvarix.git@vX.Y.Z"
 ```
 
 Replace `vX.Y.Z` with the latest release tag (install from a tag, never a
@@ -43,7 +43,7 @@ updates it. Do not run from source unless asked to develop the CLI.
 - **The database is a separate resource from the CLI.** `search`/`freq`
   fail with `DATABASE_NOT_READY` (exit 1) if it hasn't been built yet —
   `stats --json` always works and reports `keywords_rows: 0` in that case.
-  Default location: `user_data_dir("bukvarix")/bukvarix.duckdb` (macOS
+  Default location: `user_data_dir("bukvarix")/rb_bukvarix.duckdb` (macOS
   `~/Library/Application Support/bukvarix/`, Linux `~/.local/share/bukvarix/`).
   `db set-path PATH` points the CLI at an existing `.duckdb` file elsewhere;
   `BUKVARIX_DB_PATH` overrides it for one process/session.

@@ -7,8 +7,8 @@ import subprocess
 
 import pytest
 
-from bukvarix.core import deps
-from bukvarix.core.errors import DependencyTooOld
+from rb_bukvarix.core import deps
+from rb_bukvarix.core.errors import DependencyTooOld
 
 
 @pytest.fixture

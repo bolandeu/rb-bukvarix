@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from bukvarix.core import db
+from rb_bukvarix.core import db
 
 
 def test_import_keywords_collapses_word_order_permutations(imported_db: Path) -> None:
@@ -247,7 +247,7 @@ def test_build_lemma_postings_meta(postings_db: Path) -> None:
 
 
 def test_build_lemma_postings_requires_normalize(imported_db: Path) -> None:
-    from bukvarix.core.errors import CliError
+    from rb_bukvarix.core.errors import CliError
 
     with pytest.raises(CliError) as exc:
         db.build_lemma_postings(imported_db)

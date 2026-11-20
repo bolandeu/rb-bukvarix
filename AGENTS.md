@@ -21,14 +21,14 @@
 делает бэкап** (это осознанно оставлено за пределами `--confirm`-гейта —
 copy 41 ГБ файла на каждый прогон слишком дорого). Обязательно перед:
 
-- изменением кода поискового движка (`src/bukvarix/core/db.py` и вообще
-  любой файл под `src/bukvarix/`) — скопировать файл(ы) целиком
+- изменением кода поискового движка (`src/rb_bukvarix/core/db.py` и вообще
+  любой файл под `src/rb_bukvarix/`) — скопировать файл(ы) целиком
   (`cp db.py db.py.bak_<что_меняем>`) перед правкой;
 - любым вызовом `bukvarix db import-keywords|normalize|reindex` (эти
   команды и так требуют `--confirm`, но подтверждение — не замена
   бэкапу) — копия базы на внешний диск (см. ниже) перед запуском.
 
-**Где база:** `platformdirs.user_data_dir("bukvarix")/bukvarix.duckdb`
+**Где база:** `platformdirs.user_data_dir("bukvarix")/rb_bukvarix.duckdb`
 (macOS `~/Library/Application Support/bukvarix/`, Linux
 `~/.local/share/bukvarix/`), никогда не в репозитории. Точный путь —
 `bukvarix stats --json` → `db_path`.
@@ -39,7 +39,7 @@ copy 41 ГБ файла на каждый прогон слишком дорог
 
 ```bash
 test -d /Volumes/Data/bukvarix || echo "диск не смонтирован"
-cp ~/Library/Application\ Support/bukvarix/bukvarix.duckdb /Volumes/Data/bukvarix/bukvarix.duckdb.backup_<шаг>
+cp ~/Library/Application\ Support/bukvarix/rb_bukvarix.duckdb /Volumes/Data/bukvarix/rb_bukvarix.duckdb.backup_<шаг>
 ```
 
 Если `/Volumes/Data` не виден — **остановиться и попросить пользователя
@@ -240,7 +240,7 @@ db reindex --confirm`; после команды — ошибка `No such optio
 запуском — `--dry-run` для превью, затем ручной бэкап (см. выше), и
 только потом `--confirm`.
 
-База по умолчанию — `user_data_dir("bukvarix")/bukvarix.duckdb`.
+База по умолчанию — `user_data_dir("bukvarix")/rb_bukvarix.duckdb`.
 `db set-path PATH` — сохраняет путь к `.duckdb` файлу для всех остальных
 команд (переопределяется переменной окружения `BUKVARIX_DB_PATH` на
 время одного процесса/сессии).
@@ -280,7 +280,7 @@ db reindex --confirm`; после команды — ошибка `No such optio
   `Example: {cli} <команда> …`; у каждого параметра `help=`. Затем
   `uv run pytest --snapshot-update` и прочитать diff в
   `tests/snapshots/help/`.
-- `src/bukvarix/data/SKILL.md` — только конвенции, без списка команд.
+- `src/rb_bukvarix/data/SKILL.md` — только конвенции, без списка команд.
 
 ## Каждое заметное изменение выходит релизом
 

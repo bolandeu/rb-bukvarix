@@ -11,9 +11,9 @@ import pytest
 import typer.core
 import typer.main
 
-from bukvarix.cli import app
-from bukvarix.core import skills
-from bukvarix.core.version import cli_name
+from rb_bukvarix.cli import app
+from rb_bukvarix.core import skills
+from rb_bukvarix.core.version import cli_name
 
 from .test_cli import invoke, invoke_json
 

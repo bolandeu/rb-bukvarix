@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from bukvarix.core import db as bukvarix_db
+from rb_bukvarix.core import db as bukvarix_db
 
 # Typer reads these once, at import, and then forces terminal output — what a CI runner sets.
 CI_ENV = {"GITHUB_ACTIONS": "true", "FORCE_COLOR": "1", "PY_COLORS": "1"}
@@ -62,7 +62,7 @@ def small_tsv(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def db_path(tmp_path: Path) -> Path:
-    return tmp_path / "bukvarix.duckdb"
+    return tmp_path / "rb_bukvarix.duckdb"
 
 
 @pytest.fixture

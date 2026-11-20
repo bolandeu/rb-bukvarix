@@ -38,11 +38,11 @@ uv tool install --editable .
 Or from a release tag:
 
 ```bash
-uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/bukvarix.git@vX.Y.Z"
+uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/rb_bukvarix.git@vX.Y.Z"
 ```
 
 This is also how an AI agent bootstraps this CLI on a fresh machine/sandbox
-where it isn't installed yet — see `src/bukvarix/data/SKILL.md`.
+where it isn't installed yet — see `src/rb_bukvarix/data/SKILL.md`.
 
 Installed under the old distribution name `bukvarix` (before 0.3)? Remove it
 first, otherwise two tools claim the same `bukvarix` command:
@@ -64,9 +64,9 @@ To pick up later changes of the `cli-generator` template, run
 
 `bukvarix` queries a single DuckDB file (~41GB on the real Moscow dump).
 It lives in the user data dir, never in the repo:
-`platformdirs.user_data_dir("bukvarix")/bukvarix.duckdb` — on macOS
-`~/Library/Application Support/bukvarix/bukvarix.duckdb`, on Linux
-`~/.local/share/bukvarix/bukvarix.duckdb`. Path resolution, in order:
+`platformdirs.user_data_dir("bukvarix")/rb_bukvarix.duckdb` — on macOS
+`~/Library/Application Support/bukvarix/rb_bukvarix.duckdb`, on Linux
+`~/.local/share/bukvarix/rb_bukvarix.duckdb`. Path resolution, in order:
 
 1. `BUKVARIX_DB_PATH` env var — explicit override for one process/session.
 2. `bukvarix db set-path PATH` — persisted via the OS user config dir
@@ -83,12 +83,12 @@ nothing has been imported yet; `stats --json` always succeeds and reports
 
 This project follows a fixed CLI architecture:
 
-- `src/bukvarix/commands/` — argument parsing only, no business logic.
-- `src/bukvarix/core/` — services (including database-path resolution),
+- `src/rb_bukvarix/commands/` — argument parsing only, no business logic.
+- `src/rb_bukvarix/core/` — services (including database-path resolution),
   the DuckDB query/import/normalize layer (`core/db.py`), models, errors.
-- `src/bukvarix/credentials/` — OS keychain (`keyring`) + env vars, kept
+- `src/rb_bukvarix/credentials/` — OS keychain (`keyring`) + env vars, kept
   for fleet-wide consistency; unused today (bukvarix has no external API).
-- `src/bukvarix/output/` — human (`rich`) and `--json` rendering.
+- `src/rb_bukvarix/output/` — human (`rich`) and `--json` rendering.
 
 Run `bukvarix doctor` to check environment and database readiness, and
 `bukvarix --help` for the full command surface. Every command supports
@@ -105,7 +105,7 @@ exist for parity with this CLI's sibling tools (a project can require a
 minimum CLI version via `.bukvarix/config.toml`'s `[cli] min_version`) but
 hold no data bukvarix's own commands read.
 
-See `src/bukvarix/data/SKILL.md` for the agent-facing usage guide bundled
+See `src/rb_bukvarix/data/SKILL.md` for the agent-facing usage guide bundled
 with this package — install it into an AI tool with `bukvarix skill
 install`, or get it as plain text with `bukvarix --ai` (works even without
 file access).

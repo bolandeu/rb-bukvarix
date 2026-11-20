@@ -41,9 +41,9 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
 from typer.testing import CliRunner
 
-from bukvarix.cli import app as cli_app
-from bukvarix.core import opencli
-from bukvarix.core.version import DEV_VERSION, cli_name, installed_version
+from rb_bukvarix.cli import app as cli_app
+from rb_bukvarix.core import opencli
+from rb_bukvarix.core.version import DEV_VERSION, cli_name, installed_version
 
 CONTRACTS = Path(__file__).parent / "contracts"
 SCHEMA = json.loads((CONTRACTS / "schema.json").read_text())

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from bukvarix.core import api
+from rb_bukvarix.core import api
 
 from .test_cli import invoke, invoke_json, plain
 

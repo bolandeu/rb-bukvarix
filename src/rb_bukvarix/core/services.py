@@ -12,6 +12,7 @@ import tomli_w
 from packaging.version import Version
 from platformdirs import user_config_dir, user_data_dir
 
+from .._distribution import TOOL
 from .errors import CliTooOld, DatabaseNotReady, ProjectNotInitialized
 from .models import ProjectConfig
 from .version import installed_version
@@ -20,7 +21,7 @@ from .version import installed_version
 # needs template substitution: it just works under whatever package_name
 # the project was generated with.
 _PACKAGE_NAME = __name__.split(".")[0]
-PROJECT_DIR_NAME = f".{_PACKAGE_NAME}"
+PROJECT_DIR_NAME = f".{TOOL}"
 CONFIG_FILE_NAME = "config.toml"
 
 
@@ -108,15 +109,15 @@ def init_project(project_root: Path, name: str) -> ProjectConfig:
 #   3. platformdirs' default per-user data location, for a fresh machine
 #      with nothing configured yet.
 
-_ENV_VAR = f"{_PACKAGE_NAME.upper()}_DB_PATH"
+_ENV_VAR = f"{TOOL.upper()}_DB_PATH"
 
 
 def user_config_path() -> Path:
-    return Path(user_config_dir(_PACKAGE_NAME)) / CONFIG_FILE_NAME
+    return Path(user_config_dir(TOOL)) / CONFIG_FILE_NAME
 
 
 def default_db_path() -> Path:
-    return Path(user_data_dir(_PACKAGE_NAME)) / f"{_PACKAGE_NAME}.duckdb"
+    return Path(user_data_dir(TOOL)) / f"{TOOL}.duckdb"
 
 
 def get_user_db_path() -> Path | None:
