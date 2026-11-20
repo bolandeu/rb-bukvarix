@@ -78,7 +78,6 @@ It lives in the user data dir, never in the repo:
 `search`/`freq` fail with a structured `DATABASE_NOT_READY` error if
 nothing has been imported yet; `stats --json` always succeeds and reports
 `keywords_rows: 0` in that case. Building the database from a raw Bukvarix
-TSV export is documented in `docs/build.md`.
 
 ## Architecture
 
