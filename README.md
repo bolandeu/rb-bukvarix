@@ -38,7 +38,7 @@ uv tool install --editable .
 Or from a release tag:
 
 ```bash
-uv tool install "rb-bukvarix @ git+https://homeserver.tailee01ab.ts.net:3000/bolandeu/rb_bukvarix.git@vX.Y.Z"
+uv tool install "rb-bukvarix @ git+https://github.com/bolandeu/rb-bukvarix.git@vX.Y.Z"
 ```
 
 This is also how an AI agent bootstraps this CLI on a fresh machine/sandbox

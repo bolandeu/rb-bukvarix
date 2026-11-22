@@ -263,7 +263,7 @@ db reindex --confirm`; после команды — ошибка `No such optio
 ## Разработка и релиз
 
 Общий стандарт — `~/Work/tools/docs/standard-release.md`, шаблон —
-`https://homeserver.tailee01ab.ts.net:3000/bolandeu/cli-generator`
+`https://github.com/bolandeu/cli-generator`
 (обновление: `uvx copier update --trust --defaults`).
 
 - **Гейт перед каждым коммитом** — `gate check`: команда — `[publish] gate_command` в
