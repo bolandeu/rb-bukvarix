@@ -17,7 +17,7 @@ prints this document.
 ## Install (if `bukvarix --version` fails)
 
 ```bash
-uv tool install rb-bukvarix --index https://homeserver.tailee01ab.ts.net:3000/api/packages/bolandeu/pypi/simple
+uv tool install rb-bukvarix
 ```
 
 From the git tag instead:
